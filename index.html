@@ -78,6 +78,84 @@
       color: var(--accent);
     }
 
+    /* Свои пресеты */
+    .preset-btn.custom { padding-right: 30px; position: relative; }
+    .preset-btn.custom .del {
+      position: absolute;
+      right: 7px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      line-height: 1;
+      color: var(--text-dim);
+      background: rgba(255,255,255,0.05);
+      transition: background 0.2s, color 0.2s;
+    }
+    .preset-btn.custom .del:active { background: #7a2c2c; color: #fff; }
+
+    .preset-btn.add {
+      padding: 8px 14px;
+      font-size: 15px;
+      line-height: 1;
+      color: var(--accent);
+      border-style: dashed;
+    }
+
+    /* Модалка сохранения */
+    #modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 300;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    #modal.open { display: flex; }
+
+    .modal-box {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 22px 20px 18px;
+      width: 100%;
+      max-width: 320px;
+    }
+    .modal-title {
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+    .modal-hint {
+      font-size: 11.5px;
+      color: var(--text-dim);
+      margin-bottom: 14px;
+      line-height: 1.4;
+    }
+    #preset-name {
+      width: 100%;
+      padding: 11px 13px;
+      background: #000;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      margin-bottom: 14px;
+    }
+    #preset-name:focus { border-color: var(--accent); }
+    .modal-actions { display: flex; gap: 8px; }
+    .modal-actions .btn { max-width: none; }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -278,6 +356,8 @@
     <button class="preset-btn" data-preset="sleep">🌙 Сон</button>
     <button class="preset-btn" data-preset="meditation">🧘 Медитация</button>
     <button class="preset-btn" data-preset="cafe">☕ Кафе</button>
+    <span id="custom-slot"></span>
+    <button class="preset-btn add" id="btn-save-preset" title="Сохранить свой микс">＋</button>
   </div>
 
   <div class="grid" id="grid"></div>
@@ -297,6 +377,18 @@
     </div>
     <button class="btn" id="btn-stop" disabled>Стоп</button>
     <button class="btn" id="btn-share">Поделиться</button>
+  </div>
+
+  <div id="modal">
+    <div class="modal-box">
+      <div class="modal-title">Сохранить микс</div>
+      <div class="modal-hint" id="modal-hint"></div>
+      <input type="text" id="preset-name" maxlength="18" placeholder="Например: Вечер" autocomplete="off">
+      <div class="modal-actions">
+        <button class="btn" id="modal-cancel">Отмена</button>
+        <button class="btn active" id="modal-ok">Сохранить</button>
+      </div>
+    </div>
   </div>
 
   <div id="toast"></div>
@@ -482,6 +574,7 @@
       setCardActive(id, s.active);
       if (s.active) startSound(id); else stopSound(id);
       refreshStopBtn();
+      saveLastMix();
     }
 
     function onSlider(id, el) {
@@ -495,7 +588,10 @@
         startSound(id);
         refreshStopBtn();
       }
+      clearTimeout(saveDebounce);
+      saveDebounce = setTimeout(saveLastMix, 600);
     }
+    let saveDebounce = null;
 
     // ───────────────────────────────────────── Пресеты
     let activePreset = null;
@@ -505,41 +601,148 @@
       document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
     }
 
-    document.querySelectorAll('.preset-btn').forEach(btn => {
+    // Применяет микс вида { rain: 65, wind: 20, ... } (значения 0–100)
+    function applyMix(mix) {
+      ensureCtx();
+      SOUNDS.forEach(s => {
+        const vol = (mix[s.id] || 0) / 100;
+        const slider = document.getElementById('slider-' + s.id);
+        slider.value = Math.round(vol * 100);
+        slider.style.setProperty('--val', Math.round(vol * 100) + '%');
+
+        if (vol > 0) {
+          state[s.id].volume = vol;
+          if (!state[s.id].active) {
+            state[s.id].active = true;
+            setCardActive(s.id, true);
+            startSound(s.id);
+          } else {
+            setVolume(s.id, vol, FADE);
+          }
+        } else if (state[s.id].active) {
+          state[s.id].active = false;
+          setCardActive(s.id, false);
+          stopSound(s.id);
+        }
+      });
+      refreshStopBtn();
+      saveLastMix();
+    }
+
+    // Текущее состояние в виде микса
+    function currentMix() {
+      const mix = {};
+      SOUNDS.forEach(s => {
+        if (state[s.id].active) mix[s.id] = Math.round(state[s.id].volume * 100);
+      });
+      return mix;
+    }
+
+    document.querySelectorAll('.preset-btn[data-preset]').forEach(btn => {
       btn.addEventListener('click', () => {
         const name = btn.dataset.preset;
         if (activePreset === name) { stopAll(); return; }
-
         document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
         activePreset = name;
         btn.classList.add('active');
-        ensureCtx();
-
-        const mix = PRESETS[name];
-        SOUNDS.forEach(s => {
-          const vol = (mix[s.id] || 0) / 100;
-          const slider = document.getElementById('slider-' + s.id);
-          slider.value = Math.round(vol * 100);
-          slider.style.setProperty('--val', Math.round(vol * 100) + '%');
-
-          if (vol > 0) {
-            state[s.id].volume = vol;
-            if (!state[s.id].active) {
-              state[s.id].active = true;
-              setCardActive(s.id, true);
-              startSound(s.id);
-            } else {
-              setVolume(s.id, vol, FADE);
-            }
-          } else if (state[s.id].active) {
-            state[s.id].active = false;
-            setCardActive(s.id, false);
-            stopSound(s.id);
-          }
-        });
-        refreshStopBtn();
+        applyMix(PRESETS[name]);
       });
     });
+
+    // ───────────────────────────────────────── Свои пресеты (localStorage)
+    const STORE_KEY = 'tishina_v1';
+    const MAX_PRESETS = 8;
+
+    function loadStore() {
+      try {
+        return JSON.parse(localStorage.getItem(STORE_KEY)) || { presets: [], last: null };
+      } catch (e) {
+        return { presets: [], last: null };
+      }
+    }
+
+    function saveStore(data) {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (e) {}
+    }
+
+    function saveLastMix() {
+      const store = loadStore();
+      store.last = currentMix();
+      saveStore(store);
+    }
+
+    function renderCustomPresets() {
+      const slot = document.getElementById('custom-slot');
+      slot.innerHTML = '';
+      const store = loadStore();
+
+      store.presets.forEach((p, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'preset-btn custom';
+        btn.innerHTML = '<span class="lbl"></span><span class="del">×</span>';
+        btn.querySelector('.lbl').textContent = p.name;
+        btn.dataset.custom = i;
+
+        btn.addEventListener('click', e => {
+          if (e.target.classList.contains('del')) {
+            e.stopPropagation();
+            const s = loadStore();
+            s.presets.splice(i, 1);
+            saveStore(s);
+            renderCustomPresets();
+            showToast('Пресет удалён');
+            return;
+          }
+          if (activePreset === 'custom-' + i) { stopAll(); return; }
+          document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+          activePreset = 'custom-' + i;
+          btn.classList.add('active');
+          applyMix(p.mix);
+        });
+
+        slot.appendChild(btn);
+      });
+    }
+
+    // Модалка сохранения
+    const modal = document.getElementById('modal');
+    const nameInput = document.getElementById('preset-name');
+
+    document.getElementById('btn-save-preset').addEventListener('click', () => {
+      const mix = currentMix();
+      if (!Object.keys(mix).length) {
+        showToast('Сначала включите звуки');
+        return;
+      }
+      const store = loadStore();
+      if (store.presets.length >= MAX_PRESETS) {
+        showToast('Максимум ' + MAX_PRESETS + ' пресетов');
+        return;
+      }
+      const names = SOUNDS.filter(s => state[s.id].active).map(s => s.name).join(', ');
+      document.getElementById('modal-hint').textContent = names;
+      nameInput.value = '';
+      modal.classList.add('open');
+      setTimeout(() => nameInput.focus(), 50);
+    });
+
+    function closeModal() { modal.classList.remove('open'); }
+
+    document.getElementById('modal-cancel').addEventListener('click', closeModal);
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+    document.getElementById('modal-ok').addEventListener('click', doSavePreset);
+    nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSavePreset(); });
+
+    function doSavePreset() {
+      const name = nameInput.value.trim() || 'Мой микс';
+      const store = loadStore();
+      store.presets.push({ name, mix: currentMix() });
+      saveStore(store);
+      renderCustomPresets();
+      closeModal();
+      showToast('✓ Сохранено: ' + name);
+    }
 
     // ───────────────────────────────────────── Оживить
     let animateInterval = null;
@@ -665,6 +868,7 @@
       clearPresetHighlight();
       cancelTimer();
       refreshStopBtn();
+      saveLastMix();
     }
 
     function refreshStopBtn() {
@@ -738,31 +942,45 @@
 
     // ───────────────────────────────────────── Восстановление микса из URL
     (() => {
+      renderCustomPresets();
+
+      // Приоритет: микс из ссылки, иначе последний сохранённый
       const params = new URLSearchParams(location.search);
-      let any = false;
+      let mix = {};
+      let fromUrl = false;
+
       SOUNDS.forEach(s => {
         const val = params.get(s.id);
         if (val === null) return;
-        const v = Math.max(0, Math.min(100, parseInt(val, 10) || 0)) / 100;
+        const v = Math.max(0, Math.min(100, parseInt(val, 10) || 0));
+        if (v > 0) { mix[s.id] = v; fromUrl = true; }
+      });
+
+      if (!fromUrl) {
+        const last = loadStore().last;
+        if (last && Object.keys(last).length) mix = last;
+      }
+
+      if (!Object.keys(mix).length) return;
+
+      // Показываем состояние, но не играем — автозапуск требует жеста
+      SOUNDS.forEach(s => {
+        const v = (mix[s.id] || 0) / 100;
         if (v <= 0) return;
-        any = true;
         state[s.id] = { active: true, volume: v };
         const slider = document.getElementById('slider-' + s.id);
         slider.value = Math.round(v * 100);
         slider.style.setProperty('--val', Math.round(v * 100) + '%');
         setCardActive(s.id, true);
       });
-      if (any) {
-        // Автозапуск запрещён без жеста — стартуем при первом касании
-        const kick = () => {
-          SOUNDS.forEach(s => { if (state[s.id].active) startSound(s.id); });
-          refreshStopBtn();
-          document.removeEventListener('pointerdown', kick);
-        };
-        document.addEventListener('pointerdown', kick, { once: true });
+      refreshStopBtn();
+
+      const kick = () => {
+        SOUNDS.forEach(s => { if (state[s.id].active) startSound(s.id); });
         refreshStopBtn();
-        showToast('Коснитесь экрана для запуска');
-      }
+      };
+      document.addEventListener('pointerdown', kick, { once: true });
+      showToast(fromUrl ? 'Коснитесь экрана для запуска' : 'Ваш последний микс — коснитесь экрана');
     })();
 
     // Закрываем меню таймера по тапу вне
