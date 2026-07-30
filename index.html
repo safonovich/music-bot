@@ -49,6 +49,35 @@
       letter-spacing: 0.3px;
     }
 
+    .presets {
+      display: flex;
+      gap: 8px;
+      padding: 8px 14px 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .presets::-webkit-scrollbar { display: none; }
+
+    .preset-btn {
+      flex-shrink: 0;
+      padding: 8px 16px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+      letter-spacing: 0.2px;
+      transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.1s;
+    }
+    .preset-btn:active { transform: scale(0.95); }
+    .preset-btn.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -69,6 +98,7 @@
       cursor: pointer;
       transition: border-color 0.35s, background 0.35s, box-shadow 0.35s;
       user-select: none;
+      position: relative;
     }
     .card.active {
       background: var(--card-active);
@@ -87,6 +117,22 @@
     }
     .card-icon svg { width: 100%; height: 100%; }
     .card.active .card-icon { color: var(--accent); transform: scale(1.06); }
+
+    /* Спиннер загрузки поверх иконки */
+    .card.loading .card-icon { opacity: 0.15; }
+    .card .spinner {
+      display: none;
+      position: absolute;
+      top: 16px;
+      width: 22px;
+      height: 22px;
+      border: 2px solid var(--line);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    .card.loading .spinner { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     .card-name {
       font-size: 11px;
@@ -141,33 +187,36 @@
       margin-top: 12px;
       letter-spacing: 1px;
     }
+    #timer-display.fading { animation: pulse 1.6s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
     .controls {
       display: flex;
-      gap: 9px;
+      gap: 8px;
       padding: 8px 14px 26px;
       justify-content: center;
     }
 
     .btn {
       flex: 1;
-      max-width: 120px;
+      max-width: 110px;
       padding: 12px 0;
       border: 1px solid var(--line);
       border-radius: 13px;
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 500;
       letter-spacing: 0.2px;
       cursor: pointer;
       background: transparent;
       color: var(--text-dim);
-      transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.1s;
+      transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.1s, opacity 0.25s;
     }
     .btn.active { background: var(--accent); color: #000000; border-color: var(--accent); }
     .btn:active { transform: scale(0.95); }
+    .btn:disabled { opacity: 0.35; cursor: default; }
 
-    .timer-wrap { position: relative; flex: 1; max-width: 120px; display: flex; }
-    .timer-wrap .btn { width: 100%; }
+    .timer-wrap { position: relative; flex: 1; max-width: 110px; display: flex; }
+    .timer-wrap .btn { width: 100%; max-width: none; }
 
     .timer-menu {
       display: none;
@@ -197,35 +246,6 @@
     .timer-option.cancel-opt { color: var(--text-dim); border-top: 1px solid var(--line); }
     .timer-option.cancel-opt:hover { background: var(--line); color: var(--text); }
 
-    .presets {
-      display: flex;
-      gap: 8px;
-      padding: 8px 14px 4px;
-      overflow-x: auto;
-      scrollbar-width: none;
-    }
-    .presets::-webkit-scrollbar { display: none; }
-
-    .preset-btn {
-      flex-shrink: 0;
-      padding: 8px 16px;
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      background: transparent;
-      color: var(--text-dim);
-      font-size: 12.5px;
-      font-weight: 500;
-      cursor: pointer;
-      letter-spacing: 0.2px;
-      transition: background 0.2s, color 0.2s, border-color 0.2s;
-    }
-    .preset-btn:active { transform: scale(0.95); }
-    .preset-btn.active {
-      background: var(--accent-soft);
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-
     #toast {
       position: fixed;
       bottom: 92px;
@@ -252,37 +272,49 @@
     <div class="title">тишина</div>
     <div class="slogan">Включи фоновое спокойствие</div>
   </header>
+
   <div class="presets" id="presets">
-    <button class="preset-btn" onclick="applyPreset('focus')">🎯 Фокус</button>
-    <button class="preset-btn" onclick="applyPreset('sleep')">🌙 Сон</button>
-    <button class="preset-btn" onclick="applyPreset('meditation')">🧘 Медитация</button>
-    <button class="preset-btn" onclick="applyPreset('cafe')">☕ Кафе</button>
+    <button class="preset-btn" data-preset="focus">🎯 Фокус</button>
+    <button class="preset-btn" data-preset="sleep">🌙 Сон</button>
+    <button class="preset-btn" data-preset="meditation">🧘 Медитация</button>
+    <button class="preset-btn" data-preset="cafe">☕ Кафе</button>
   </div>
+
   <div class="grid" id="grid"></div>
   <div id="timer-display"></div>
+
   <div class="controls">
-    <button class="btn" id="btn-animate" onclick="toggleAnimate()">Оживить</button>
+    <button class="btn" id="btn-animate">Оживить</button>
     <div class="timer-wrap">
-      <button class="btn" id="btn-timer" onclick="toggleTimerMenu()">Таймер</button>
+      <button class="btn" id="btn-timer">Таймер</button>
       <div class="timer-menu" id="timer-menu">
-        <div class="timer-option" onclick="setTimer(15)">15 мин</div>
-        <div class="timer-option" onclick="setTimer(30)">30 мин</div>
-        <div class="timer-option" onclick="setTimer(45)">45 мин</div>
-        <div class="timer-option" onclick="setTimer(60)">60 мин</div>
-        <div class="timer-option cancel-opt" onclick="cancelTimer()">Отмена</div>
+        <div class="timer-option" data-min="15">15 мин</div>
+        <div class="timer-option" data-min="30">30 мин</div>
+        <div class="timer-option" data-min="45">45 мин</div>
+        <div class="timer-option" data-min="60">60 мин</div>
+        <div class="timer-option cancel-opt" data-min="0">Отмена</div>
       </div>
     </div>
-    <button class="btn" onclick="shareMix()">Поделиться</button>
+    <button class="btn" id="btn-stop" disabled>Стоп</button>
+    <button class="btn" id="btn-share">Поделиться</button>
   </div>
+
   <div id="toast"></div>
 
   <script>
+  (() => {
+    'use strict';
+
     if (window.Telegram?.WebApp) {
       Telegram.WebApp.expand();
-      Telegram.WebApp.setBackgroundColor('#000000');
-      Telegram.WebApp.setHeaderColor('#000000');
+      try {
+        Telegram.WebApp.setBackgroundColor('#000000');
+        Telegram.WebApp.setHeaderColor('#000000');
+      } catch (e) {}
+      try { Telegram.WebApp.disableVerticalSwipes(); } catch (e) {}
     }
 
+    // ───────────────────────────────────────── Иконки
     const IC = {
       rain:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12.5a3.8 3.8 0 0 1 .7-7.5A5 5 0 0 1 17 5.2a3.4 3.4 0 0 1 1 6.6"/><path d="M8 16l-1 2.5M12 16l-1 2.5M16 16l-1 2.5"/></svg>',
       thunder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12a3.8 3.8 0 0 1 .7-7.5A5 5 0 0 1 17 4.7a3.4 3.4 0 0 1 1 6.6"/><path d="M12 13l-2.2 3.2h2.8L10.4 20"/></svg>',
@@ -307,162 +339,354 @@
       { id: 'ambient',    name: 'Эмбиент',    file: 'ambient.mp3',    icon: IC.ambient,    def: 0.25 },
     ];
 
-    const state = {};
-    const audios = {};
-    let animateInterval = null;
-    let timerTimeout = null;
-    let timerTick = null;
-    let timerEnd = null;
+    const PRESETS = {
+      focus:      { rain: 65, wind: 20, birds: 30, handpan: 25, ambient: 35 },
+      sleep:      { rain: 60, thunder: 15, waves: 45, ambient: 50 },
+      meditation: { waves: 25, fire: 20, birds: 15, handpan: 60, didgeridoo: 30, ambient: 45 },
+      cafe:       { rain: 40, wind: 15, fire: 55, birds: 35, handpan: 20, ambient: 25 },
+    };
 
-    // Build grid
+    const FADE = 0.4;        // фейд вкл/выкл, сек
+    const TIMER_FADE = 30;   // затухание перед концом таймера, сек
+
+    // ───────────────────────────────────────── Аудиодвижок (Web Audio API)
+    let ctx = null;
+    let master = null;
+    const buffers = {};   // id -> AudioBuffer
+    const nodes = {};     // id -> { src, gain }
+    const loading = {};   // id -> Promise
+    const state = {};     // id -> { active, volume }
+
+    function ensureCtx() {
+      if (!ctx) {
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+        master = ctx.createGain();
+        master.gain.value = 1;
+        master.connect(ctx.destination);
+      }
+      if (ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    }
+
+    // Загружаем и декодируем mp3 в AudioBuffer (кешируется)
+    function loadBuffer(id, file) {
+      if (buffers[id]) return Promise.resolve(buffers[id]);
+      if (loading[id]) return loading[id];
+
+      setCardLoading(id, true);
+      loading[id] = fetch(file)
+        .then(r => {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.arrayBuffer();
+        })
+        .then(ab => ensureCtx().decodeAudioData(ab))
+        .then(buf => {
+          buffers[id] = buf;
+          setCardLoading(id, false);
+          delete loading[id];
+          return buf;
+        })
+        .catch(err => {
+          setCardLoading(id, false);
+          delete loading[id];
+          showToast('Не удалось загрузить звук');
+          throw err;
+        });
+      return loading[id];
+    }
+
+    // Запуск звука. AudioBufferSourceNode с loop=true даёт бесшовный цикл.
+    async function startSound(id) {
+      const s = SOUNDS.find(x => x.id === id);
+      ensureCtx();
+      const buf = await loadBuffer(id, s.file);
+      if (!state[id].active) return;   // успели выключить пока грузилось
+      if (nodes[id]) return;           // уже играет
+
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      gain.gain.linearRampToValueAtTime(state[id].volume, ctx.currentTime + FADE);
+
+      src.connect(gain).connect(master);
+      src.start(0);
+      nodes[id] = { src, gain };
+      updateMediaSession();
+    }
+
+    function stopSound(id, fade = FADE) {
+      const n = nodes[id];
+      if (!n) return;
+      const t = ctx.currentTime;
+      n.gain.gain.cancelScheduledValues(t);
+      n.gain.gain.setValueAtTime(n.gain.gain.value, t);
+      n.gain.gain.linearRampToValueAtTime(0, t + fade);
+      const src = n.src;
+      setTimeout(() => { try { src.stop(); } catch (e) {} }, (fade + 0.05) * 1000);
+      delete nodes[id];
+      updateMediaSession();
+    }
+
+    function setVolume(id, v, ramp = 0.08) {
+      state[id].volume = v;
+      const n = nodes[id];
+      if (!n) return;
+      const t = ctx.currentTime;
+      n.gain.gain.cancelScheduledValues(t);
+      n.gain.gain.setValueAtTime(n.gain.gain.value, t);
+      n.gain.gain.linearRampToValueAtTime(v, t + ramp);
+    }
+
+    // ───────────────────────────────────────── UI: сетка
     const grid = document.getElementById('grid');
+
     SOUNDS.forEach(s => {
       state[s.id] = { active: false, volume: s.def };
-
-      const audio = new Audio(s.file);
-      audio.loop = true;
-      audio.volume = s.def;
-      audio.preload = 'none';
-      audios[s.id] = audio;
 
       const card = document.createElement('div');
       card.className = 'card';
       card.id = 'card-' + s.id;
-      card.innerHTML = `
-        <div class="card-icon">${s.icon}</div>
-        <div class="card-name">${s.name}</div>
-        <div class="slider-wrap">
-          <input type="range" min="0" max="100"
-            value="${Math.round(s.def * 100)}"
-            id="slider-${s.id}"
-            style="--val: ${Math.round(s.def * 100)}%"
-            oninput="onSlider('${s.id}', this)"
-            onclick="event.stopPropagation()"
-            ontouchstart="event.stopPropagation()">
-        </div>`;
+      card.innerHTML =
+        '<div class="spinner"></div>' +
+        '<div class="card-icon">' + s.icon + '</div>' +
+        '<div class="card-name">' + s.name + '</div>' +
+        '<div class="slider-wrap">' +
+          '<input type="range" min="0" max="100" value="' + Math.round(s.def * 100) + '"' +
+          ' id="slider-' + s.id + '" style="--val: ' + Math.round(s.def * 100) + '%">' +
+        '</div>';
+
+      const slider = card.querySelector('input');
+      slider.addEventListener('input', e => onSlider(s.id, e.target));
+      slider.addEventListener('click', e => e.stopPropagation());
+      slider.addEventListener('touchstart', e => e.stopPropagation());
+
       card.addEventListener('click', () => toggleSound(s.id));
       grid.appendChild(card);
     });
 
+    function setCardLoading(id, on) {
+      document.getElementById('card-' + id).classList.toggle('loading', on);
+    }
+
+    function setCardActive(id, on) {
+      document.getElementById('card-' + id).classList.toggle('active', on);
+    }
+
     function toggleSound(id) {
-      activePreset = null;
-      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+      clearPresetHighlight();
       const s = state[id];
       s.active = !s.active;
-      const card = document.getElementById('card-' + id);
-      if (s.active) {
-        audios[id].volume = s.volume;
-        audios[id].play().catch(() => {});
-        card.classList.add('active');
-      } else {
-        audios[id].pause();
-        card.classList.remove('active');
-      }
+      setCardActive(id, s.active);
+      if (s.active) startSound(id); else stopSound(id);
+      refreshStopBtn();
     }
 
     function onSlider(id, el) {
+      clearPresetHighlight();
       const v = el.value / 100;
       el.style.setProperty('--val', el.value + '%');
-      state[id].volume = v;
-      audios[id].volume = v;
+      setVolume(id, v);
       if (!state[id].active && v > 0) {
         state[id].active = true;
-        audios[id].play().catch(() => {});
-        document.getElementById('card-' + id).classList.add('active');
+        setCardActive(id, true);
+        startSound(id);
+        refreshStopBtn();
       }
     }
 
-    // Animate
-    function toggleAnimate() {
-      const btn = document.getElementById('btn-animate');
+    // ───────────────────────────────────────── Пресеты
+    let activePreset = null;
+
+    function clearPresetHighlight() {
+      activePreset = null;
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    }
+
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const name = btn.dataset.preset;
+        if (activePreset === name) { stopAll(); return; }
+
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        activePreset = name;
+        btn.classList.add('active');
+        ensureCtx();
+
+        const mix = PRESETS[name];
+        SOUNDS.forEach(s => {
+          const vol = (mix[s.id] || 0) / 100;
+          const slider = document.getElementById('slider-' + s.id);
+          slider.value = Math.round(vol * 100);
+          slider.style.setProperty('--val', Math.round(vol * 100) + '%');
+
+          if (vol > 0) {
+            state[s.id].volume = vol;
+            if (!state[s.id].active) {
+              state[s.id].active = true;
+              setCardActive(s.id, true);
+              startSound(s.id);
+            } else {
+              setVolume(s.id, vol, FADE);
+            }
+          } else if (state[s.id].active) {
+            state[s.id].active = false;
+            setCardActive(s.id, false);
+            stopSound(s.id);
+          }
+        });
+        refreshStopBtn();
+      });
+    });
+
+    // ───────────────────────────────────────── Оживить
+    let animateInterval = null;
+    const btnAnimate = document.getElementById('btn-animate');
+
+    btnAnimate.addEventListener('click', () => {
       if (animateInterval) {
         clearInterval(animateInterval);
         animateInterval = null;
-        btn.classList.remove('active');
+        btnAnimate.classList.remove('active');
       } else {
         animateInterval = setInterval(animateStep, 4000);
-        btn.classList.add('active');
+        btnAnimate.classList.add('active');
         animateStep();
       }
-    }
+    });
 
     function animateStep() {
       SOUNDS.forEach(s => {
         if (!state[s.id].active) return;
         const cur = state[s.id].volume;
-        const delta = (Math.random() - 0.5) * 0.35;
-        const next = Math.min(0.98, Math.max(0.05, cur + delta));
-        state[s.id].volume = next;
-        audios[s.id].volume = next;
+        const next = Math.min(0.98, Math.max(0.05, cur + (Math.random() - 0.5) * 0.35));
+        setVolume(s.id, next, 3.5);   // плавный дрейф вместо скачка
         const el = document.getElementById('slider-' + s.id);
         el.value = Math.round(next * 100);
         el.style.setProperty('--val', Math.round(next * 100) + '%');
       });
     }
 
-    // Timer
-    function toggleTimerMenu() {
-      document.getElementById('timer-menu').classList.toggle('open');
-    }
+    // ───────────────────────────────────────── Таймер
+    let timerTimeout = null, fadeTimeout = null, timerTick = null, timerEnd = null;
+    const btnTimer = document.getElementById('btn-timer');
+    const timerMenu = document.getElementById('timer-menu');
+    const timerDisplay = document.getElementById('timer-display');
+
+    btnTimer.addEventListener('click', e => {
+      e.stopPropagation();
+      timerMenu.classList.toggle('open');
+    });
+
+    timerMenu.querySelectorAll('.timer-option').forEach(opt => {
+      opt.addEventListener('click', () => {
+        const min = parseInt(opt.dataset.min, 10);
+        timerMenu.classList.remove('open');
+        if (min === 0) cancelTimer(); else setTimer(min);
+      });
+    });
 
     function setTimer(min) {
-      document.getElementById('timer-menu').classList.remove('open');
-      if (timerTimeout) clearTimeout(timerTimeout);
-      if (timerTick) clearInterval(timerTick);
-      timerEnd = Date.now() + min * 60000;
-      timerTimeout = setTimeout(stopAll, min * 60000);
-      document.getElementById('btn-timer').classList.add('active');
+      clearTimers();
+      const ms = min * 60000;
+      timerEnd = Date.now() + ms;
+
+      // Плавное затухание за TIMER_FADE секунд до конца
+      const fadeAt = Math.max(0, ms - TIMER_FADE * 1000);
+      fadeTimeout = setTimeout(() => {
+        if (!ctx) return;
+        timerDisplay.classList.add('fading');
+        const t = ctx.currentTime;
+        master.gain.cancelScheduledValues(t);
+        master.gain.setValueAtTime(master.gain.value, t);
+        master.gain.linearRampToValueAtTime(0.0001, t + TIMER_FADE);
+      }, fadeAt);
+
+      timerTimeout = setTimeout(() => {
+        stopAll();
+        if (master) master.gain.value = 1;
+        showToast('Таймер завершён');
+      }, ms);
+
+      btnTimer.classList.add('active');
       updateTimerDisplay();
       timerTick = setInterval(updateTimerDisplay, 1000);
     }
 
-    function cancelTimer() {
-      document.getElementById('timer-menu').classList.remove('open');
+    function clearTimers() {
       if (timerTimeout) clearTimeout(timerTimeout);
+      if (fadeTimeout) clearTimeout(fadeTimeout);
       if (timerTick) clearInterval(timerTick);
+      timerTimeout = fadeTimeout = timerTick = null;
+    }
+
+    function cancelTimer() {
+      clearTimers();
       timerEnd = null;
-      document.getElementById('btn-timer').classList.remove('active');
-      document.getElementById('timer-display').textContent = '';
+      btnTimer.classList.remove('active');
+      timerDisplay.textContent = '';
+      timerDisplay.classList.remove('fading');
+      if (ctx && master) {
+        const t = ctx.currentTime;
+        master.gain.cancelScheduledValues(t);
+        master.gain.setValueAtTime(master.gain.value, t);
+        master.gain.linearRampToValueAtTime(1, t + 0.5);
+      }
     }
 
     function updateTimerDisplay() {
       if (!timerEnd) return;
       const left = timerEnd - Date.now();
-      if (left <= 0) { document.getElementById('timer-display').textContent = ''; return; }
+      if (left <= 0) { timerDisplay.textContent = ''; return; }
       const m = Math.floor(left / 60000);
       const s = Math.floor((left % 60000) / 1000);
-      document.getElementById('timer-display').textContent = `${m}:${s.toString().padStart(2, '0')}`;
+      timerDisplay.textContent = m + ':' + String(s).padStart(2, '0');
     }
+
+    // ───────────────────────────────────────── Стоп всё
+    const btnStop = document.getElementById('btn-stop');
+    btnStop.addEventListener('click', stopAll);
 
     function stopAll() {
       SOUNDS.forEach(s => {
         if (state[s.id].active) {
           state[s.id].active = false;
-          audios[s.id].pause();
-          document.getElementById('card-' + s.id).classList.remove('active');
+          setCardActive(s.id, false);
+          stopSound(s.id);
         }
       });
       if (animateInterval) {
         clearInterval(animateInterval);
         animateInterval = null;
-        document.getElementById('btn-animate').classList.remove('active');
+        btnAnimate.classList.remove('active');
       }
+      clearPresetHighlight();
       cancelTimer();
+      refreshStopBtn();
     }
 
-    // Share
-    function shareMix() {
+    function refreshStopBtn() {
+      btnStop.disabled = !SOUNDS.some(s => state[s.id].active);
+    }
+
+    // ───────────────────────────────────────── Поделиться
+    document.getElementById('btn-share').addEventListener('click', () => {
       const params = new URLSearchParams();
       SOUNDS.forEach(s => {
         if (state[s.id].active) params.set(s.id, Math.round(state[s.id].volume * 100));
       });
-      const url = location.origin + location.pathname + (params.toString() ? '?' + params.toString() : '');
+      const url = location.origin + location.pathname + (params.toString() ? '?' + params : '');
       if (navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(url).then(() => showToast('✓ Ссылка скопирована'));
+        navigator.clipboard.writeText(url).then(
+          () => showToast('✓ Ссылка скопирована'),
+          () => showToast('✓ Ссылка готова')
+        );
       } else {
         showToast('✓ Ссылка готова');
       }
-    }
+    });
 
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -471,79 +695,82 @@
       setTimeout(() => t.classList.remove('show'), 2500);
     }
 
-    // Restore mix from URL
-    (() => {
-      const params = new URLSearchParams(location.search);
-      SOUNDS.forEach(s => {
-        const val = params.get(s.id);
-        if (val !== null) {
-          const v = parseInt(val) / 100;
-          state[s.id] = { active: true, volume: v };
-          audios[s.id].volume = v;
-          audios[s.id].play().catch(() => {});
-          const card = document.getElementById('card-' + s.id);
-          card.classList.add('active');
-          const slider = document.getElementById('slider-' + s.id);
-          slider.value = parseInt(val);
-          slider.style.setProperty('--val', val + '%');
-        }
-      });
-    })();
+    // ───────────────────────────────────────── Фоновое воспроизведение
+    // Держим «немой» HTMLAudio, чтобы iOS/Android считали таб активным
+    // медиаплеером и не глушили Web Audio при свёрнутом Telegram.
+    let keepAlive = null;
 
-    // Presets
-    const PRESETS = {
-      focus:     { rain: 65, thunder: 0,  waves: 0,  wind: 20, fire: 0,  birds: 30, handpan: 25, didgeridoo: 0,  ambient: 35 },
-      sleep:     { rain: 60, thunder: 15, waves: 45, wind: 0,  fire: 0,  birds: 0,  handpan: 0,  didgeridoo: 0,  ambient: 50 },
-      meditation:{ rain: 0,  thunder: 0,  waves: 25, wind: 0,  fire: 20, birds: 15, handpan: 60, didgeridoo: 30, ambient: 45 },
-      cafe:      { rain: 40, thunder: 0,  waves: 0,  wind: 15, fire: 55, birds: 35, handpan: 20, didgeridoo: 0,  ambient: 25 },
-    };
-
-    let activePreset = null;
-
-    function applyPreset(name) {
-      // Снимаем подсветку со всех кнопок
-
-      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-
-      if (activePreset === name) {
-        // Повторный клик — сброс
-        activePreset = null;
-        stopAll();
-        return;
-      }
-
-      activePreset = name;
-      event.currentTarget.classList.add('active');
-
-      const mix = PRESETS[name];
-      SOUNDS.forEach(s => {
-        const vol = (mix[s.id] || 0) / 100;
-        const slider = document.getElementById('slider-' + s.id);
-        const card = document.getElementById('card-' + s.id);
-
-        slider.value = mix[s.id] || 0;
-        slider.style.setProperty('--val', (mix[s.id] || 0) + '%');
-        state[s.id].volume = vol;
-        audios[s.id].volume = vol;
-
-        if (vol > 0 && !state[s.id].active) {
-          state[s.id].active = true;
-          audios[s.id].play().catch(() => {});
-          card.classList.add('active');
-        } else if (vol === 0 && state[s.id].active) {
-          state[s.id].active = false;
-          audios[s.id].pause();
-          card.classList.remove('active');
-        }
-      });
+    function initKeepAlive() {
+      if (keepAlive) return;
+      // 1-секундная тишина в WAV, data-URI (44 байта заголовок + нули)
+      const silence = 'data:audio/wav;base64,UklGRjIAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQ4AAAAAAAAAAAAAAAAAAAAAAA==';
+      keepAlive = new Audio(silence);
+      keepAlive.loop = true;
+      keepAlive.volume = 0.001;
+      keepAlive.play().catch(() => {});
     }
 
-    // Close timer menu on outside tap
-    document.addEventListener('click', e => {
-      if (!e.target.closest('.timer-wrap')) {
-        document.getElementById('timer-menu').classList.remove('open');
+    function updateMediaSession() {
+      const playing = SOUNDS.some(s => state[s.id].active);
+      if (playing) initKeepAlive();
+      else if (keepAlive) { keepAlive.pause(); }
+
+      if (!('mediaSession' in navigator)) return;
+      navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+      if (playing) {
+        const names = SOUNDS.filter(s => state[s.id].active).map(s => s.name).join(' · ');
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: names || 'Тишина',
+          artist: 'Тишина',
+          album: 'Фоновое спокойствие'
+        });
+        try {
+          navigator.mediaSession.setActionHandler('pause', stopAll);
+          navigator.mediaSession.setActionHandler('stop', stopAll);
+        } catch (e) {}
       }
+    }
+
+    // Возобновляем контекст когда возвращаемся в приложение
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && ctx && ctx.state === 'suspended') ctx.resume();
     });
+
+    // ───────────────────────────────────────── Восстановление микса из URL
+    (() => {
+      const params = new URLSearchParams(location.search);
+      let any = false;
+      SOUNDS.forEach(s => {
+        const val = params.get(s.id);
+        if (val === null) return;
+        const v = Math.max(0, Math.min(100, parseInt(val, 10) || 0)) / 100;
+        if (v <= 0) return;
+        any = true;
+        state[s.id] = { active: true, volume: v };
+        const slider = document.getElementById('slider-' + s.id);
+        slider.value = Math.round(v * 100);
+        slider.style.setProperty('--val', Math.round(v * 100) + '%');
+        setCardActive(s.id, true);
+      });
+      if (any) {
+        // Автозапуск запрещён без жеста — стартуем при первом касании
+        const kick = () => {
+          SOUNDS.forEach(s => { if (state[s.id].active) startSound(s.id); });
+          refreshStopBtn();
+          document.removeEventListener('pointerdown', kick);
+        };
+        document.addEventListener('pointerdown', kick, { once: true });
+        refreshStopBtn();
+        showToast('Коснитесь экрана для запуска');
+      }
+    })();
+
+    // Закрываем меню таймера по тапу вне
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.timer-wrap')) timerMenu.classList.remove('open');
+    });
+
+  })();
   </script>
 </body>
 </html>
