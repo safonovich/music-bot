@@ -375,7 +375,7 @@
 <body>
 
   <header>
-    <div class="title">тишина</div>
+    <div class="title" id="brand">тишина</div>
     <div class="slogan" id="slogan"></div>
     <button id="lang" title="Language"></button>
   </header>
@@ -959,9 +959,10 @@
       if (!('mediaSession' in navigator)) return;
       navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
       if (playing) {
+        const brand = lang === 'ru' ? 'Тишина' : 'Tishina';
         const names = SOUNDS.filter(s => state[s.id].active).map(s => t('names')[s.id]).join(' · ');
         navigator.mediaSession.metadata = new MediaMetadata({
-          title: names || 'Тишина', artist: 'Тишина', album: t('slogan')
+          title: names || brand, artist: brand, album: t('slogan')
         });
         try {
           navigator.mediaSession.setActionHandler('pause', stopAll);
@@ -977,6 +978,8 @@
     // ───────────────────────────────────────── Применение языка
     function applyLang() {
       document.documentElement.lang = lang;
+      document.getElementById('brand').textContent = lang === 'ru' ? 'тишина' : 'tishina';
+      document.title = lang === 'ru' ? 'Тишина' : 'Tishina';
       document.getElementById('slogan').textContent = t('slogan');
       document.getElementById('lang').textContent = lang === 'ru' ? '🇺🇸' : '🪆';
       document.getElementById('lang').title = lang === 'ru' ? 'English' : 'Русский';
