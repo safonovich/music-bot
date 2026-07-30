@@ -212,6 +212,18 @@
     .card.loading .spinner { display: block; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* Метка «нужны наушники» для бинауральных ритмов */
+    .card .hp {
+      position: absolute;
+      top: 7px;
+      right: 8px;
+      width: 11px;
+      height: 11px;
+      color: var(--text-dim);
+      opacity: 0.55;
+    }
+    .card.active .hp { color: var(--accent); opacity: 1; }
+
     .card-name {
       font-size: 11px;
       color: var(--text-dim);
@@ -356,6 +368,7 @@
     <button class="preset-btn" data-preset="sleep">🌙 Сон</button>
     <button class="preset-btn" data-preset="meditation">🧘 Медитация</button>
     <button class="preset-btn" data-preset="cafe">☕ Кафе</button>
+    <button class="preset-btn" data-preset="deep">🎧 Глубокий фокус</button>
     <span id="custom-slot"></span>
     <button class="preset-btn add" id="btn-save-preset" title="Сохранить свой микс">＋</button>
   </div>
@@ -416,7 +429,14 @@
       birds: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10c1.6-2.2 3.2-2.2 4.8 0"/><path d="M13 8c1.8-2.4 3.4-2.4 5.2 0"/></svg>',
       handpan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="1.4"/><path d="M12 5.5v1.6M12 16.9v1.6M5.5 12h1.6M16.9 12h1.6"/></svg>',
       didgeridoo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 19.5 16 8a2.1 2.1 0 0 1 3 3L7.5 22.5"/><path d="M13.5 10.5l3 3M15.5 8.5l3 3"/></svg>',
-      ambient:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.3"/><circle cx="12" cy="12" r="6.6" opacity="0.5"/></svg>'
+      ambient:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.3"/><circle cx="12" cy="12" r="6.6" opacity="0.5"/></svg>',
+      softnoise:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 12h2M7 9v6M11 6.5v11M15 9v6M19 11v2"/></svg>',
+      deepnoise:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 12h2M7 10.5v3M11 8v8M15 5v14M19 9.5v5"/></svg>',
+      alpha:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c1.5-4 3-4 4.5 0s3 4 4.5 0 3-4 4.5 0 3 4 4.5 0"/></svg>',
+      theta:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c2.5-5 5-5 7.5 0s5 5 7.5 0"/><path d="M18 12c1 2 2 2 3 0" opacity="0.5"/></svg>',
+      delta:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c4-7 8-7 12 0s6 5 8 0"/></svg>',
+      drone432:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v2.4M12 18.1v2.4M3.5 12h2.4M18.1 12h2.4" opacity="0.6"/><circle cx="12" cy="12" r="8" opacity="0.3"/></svg>',
+      bowl:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10c0 5 3.6 8 8 8s8-3 8-8"/><path d="M2.5 10h19"/><path d="M9 5.5c1-1.5 5-1.5 6 0" opacity="0.5"/></svg>'
     };
 
     const SOUNDS = [
@@ -429,13 +449,25 @@
       { id: 'handpan',    name: 'Хендпан',    file: 'handpan.mp3',    icon: IC.handpan,    def: 0.50 },
       { id: 'didgeridoo', name: 'Диджериду',  file: 'didgeridoo.mp3', icon: IC.didgeridoo, def: 0.20 },
       { id: 'ambient',    name: 'Эмбиент',    file: 'ambient.mp3',    icon: IC.ambient,    def: 0.25 },
+
+      // Синтезированные — идеально ровный фон без «швов» и случайных событий
+      { id: 'softnoise',  name: 'Мягкий шум', file: 'softnoise.mp3',  icon: IC.softnoise,  def: 0.45 },
+      { id: 'deepnoise',  name: 'Низкий гул', file: 'deepnoise.mp3',  icon: IC.deepnoise,  def: 0.40 },
+      { id: 'bowl',       name: 'Чаша',       file: 'bowl.mp3',       icon: IC.bowl,       def: 0.35 },
+      { id: 'drone432',   name: '432 Гц',     file: 'drone432.mp3',   icon: IC.drone432,   def: 0.30 },
+
+      // Бинауральные ритмы — только в наушниках, оба уха слышат разную частоту
+      { id: 'alpha',      name: 'Альфа 10 Гц', file: 'alpha.mp3',     icon: IC.alpha,      def: 0.35, headphones: true },
+      { id: 'theta',      name: 'Тета 6 Гц',   file: 'theta.mp3',     icon: IC.theta,      def: 0.35, headphones: true },
+      { id: 'delta',      name: 'Дельта 2 Гц', file: 'delta.mp3',     icon: IC.delta,      def: 0.35, headphones: true },
     ];
 
     const PRESETS = {
-      focus:      { rain: 65, wind: 20, birds: 30, handpan: 25, ambient: 35 },
-      sleep:      { rain: 60, thunder: 15, waves: 45, ambient: 50 },
-      meditation: { waves: 25, fire: 20, birds: 15, handpan: 60, didgeridoo: 30, ambient: 45 },
+      focus:      { rain: 55, wind: 18, birds: 25, ambient: 30, softnoise: 40, alpha: 30 },
+      sleep:      { rain: 50, thunder: 12, waves: 40, ambient: 45, deepnoise: 35, delta: 30 },
+      meditation: { waves: 20, fire: 18, handpan: 50, didgeridoo: 25, bowl: 45, drone432: 35, theta: 28 },
       cafe:       { rain: 40, wind: 15, fire: 55, birds: 35, handpan: 20, ambient: 25 },
+      deep:       { deepnoise: 55, softnoise: 25, drone432: 20, alpha: 35 },
     };
 
     const FADE = 0.4;        // фейд вкл/выкл, сек
@@ -541,8 +573,12 @@
       const card = document.createElement('div');
       card.className = 'card';
       card.id = 'card-' + s.id;
+      const hpBadge = s.headphones
+        ? '<svg class="hp" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2.5" y="13.5" width="4" height="7" rx="1.6"/><rect x="17.5" y="13.5" width="4" height="7" rx="1.6"/></svg>'
+        : '';
+
       card.innerHTML =
-        '<div class="spinner"></div>' +
+        '<div class="spinner"></div>' + hpBadge +
         '<div class="card-icon">' + s.icon + '</div>' +
         '<div class="card-name">' + s.name + '</div>' +
         '<div class="slider-wrap">' +
