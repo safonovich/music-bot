@@ -563,6 +563,8 @@
 
     const LANG_KEY = 'tishina_lang';
     function detectLang() {
+      const fromUrl = QS.get('lang');
+      if (fromUrl && I18N[fromUrl]) return fromUrl;
       const saved = localStorage.getItem(LANG_KEY);
       if (saved && I18N[saved]) return saved;
       const code = TG?.initDataUnsafe?.user?.language_code || navigator.language || 'en';
@@ -693,8 +695,17 @@
 
     const ensureCtx = () => {};   // осталось от прежнего движка, вызовы безвредны
 
+    let hintTimer = null;
+    function scheduleHint() {
+      if (hintTimer) return;
+      hintTimer = setTimeout(() => {
+        if (SOUNDS.some(s => state[s.id].active)) maybeShowHint();
+      }, 20000);
+    }
+
     async function startSound(id) {
       const el = ensureEl(id);
+      scheduleHint();
       setCardLoading(id, true);
       try {
         el.volume = 0;
@@ -1145,6 +1156,10 @@
 
       document.getElementById('more-label').textContent =
         extra.classList.contains('open') ? t('less') : t('more');
+
+      document.getElementById('hint-text').innerHTML       = t('hintText');
+      document.getElementById('hint-open').textContent     = t('hintOpen');
+      document.getElementById('hint-close').textContent    = t('hintClose');
 
       document.getElementById('modal-title').textContent  = t('saveTitle');
       document.getElementById('modal-cancel').textContent = t('cancel');
