@@ -350,6 +350,35 @@
     .modal-actions { display: flex; gap: 8px; }
     .modal-actions .btn { max-width: none; }
 
+    /* Подсказка про фоновое воспроизведение на iOS */
+    #hint {
+      display: none;
+      margin: 0 14px 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--card);
+      font-size: 11.5px;
+      line-height: 1.45;
+      color: var(--text-dim);
+      position: relative;
+    }
+    #hint.show { display: block; }
+    #hint b { color: var(--text); font-weight: 500; }
+    #hint .row { display: flex; gap: 8px; margin-top: 10px; }
+    #hint button {
+      flex: 1;
+      padding: 9px 0;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 11.5px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    #hint button.main { background: var(--accent); color: #000; border-color: var(--accent); }
+
     #toast {
       position: fixed;
       bottom: 92px; left: 50%;
@@ -397,6 +426,14 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
   </div>
   <div id="extra"><div class="grid" id="grid-extra"></div></div>
+
+  <div id="hint">
+    <span id="hint-text"></span>
+    <div class="row">
+      <button id="hint-open" class="main"></button>
+      <button id="hint-close"></button>
+    </div>
+  </div>
 
   <div id="timer-display"></div>
 
@@ -485,6 +522,9 @@
         lastMix: 'Ваш последний микс — коснитесь экрана',
         locked: 'Доступно по подписке',
         headphones: 'Нужны наушники',
+        hintText: 'Внутри Telegram на iPhone звук выключается, когда гаснет экран — так устроена сама система. <b>Откройте в браузере</b>, и он продолжит играть с заблокированным экраном.',
+        hintOpen: 'Открыть в браузере',
+        hintClose: 'Не сейчас',
         names: {
           rain:'Дождь', thunder:'Гром', waves:'Волны', wind:'Ветер', fire:'Огонь',
           birds:'Птицы', handpan:'Хендпан', didgeridoo:'Диджериду', ambient:'Эмбиент',
@@ -509,6 +549,9 @@
         lastMix: 'Your last mix — tap to play',
         locked: 'Available with subscription',
         headphones: 'Headphones needed',
+        hintText: 'Inside Telegram on iPhone the sound stops when the screen turns off — that is how the system works. <b>Open in a browser</b> and it will keep playing with the screen locked.',
+        hintOpen: 'Open in browser',
+        hintClose: 'Not now',
         names: {
           rain:'Rain', thunder:'Thunder', waves:'Waves', wind:'Wind', fire:'Fire',
           birds:'Birds', handpan:'Handpan', didgeridoo:'Didgeridoo', ambient:'Ambient',
@@ -612,7 +655,18 @@
       el.addEventListener('waiting', () => setCardLoading(id, true));
       el.addEventListener('playing', () => setCardLoading(id, false));
       el.addEventListener('canplaythrough', () => setCardLoading(id, false));
-      el.addEventListener('error', () => { setCardLoading(id, false); showToast(t('loadFail')); });
+      el.addEventListener('error', () => {
+        // AAC мог не залиться — молча пробуем mp3, и только потом сдаёмся
+        if (!el.dataset.fellBack && el.src.endsWith('.m4a')) {
+          el.dataset.fellBack = '1';
+          el.src = s.file;
+          el.load();
+          if (state[id].active) el.play().catch(() => {});
+          return;
+        }
+        setCardLoading(id, false);
+        showToast(t('loadFail'));
+      });
       els[id] = el;
       return el;
     }
@@ -1020,6 +1074,46 @@
     document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
     window.addEventListener('focus', wake);
     window.addEventListener('pageshow', wake);
+
+    // ───────────────────────────────────────── Фон на iPhone
+    //
+    // Внутри Telegram страница живёт в WKWebView, а Apple с iOS 13 глушит
+    // там звук при блокировке экрана — это ограничение системы, из веба
+    // не обходится. В обычном Safari фон работает, поэтому предлагаем
+    // перейти туда. Показываем один раз и только тем, кого это касается.
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+               || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const inTelegram = !!TG?.initData || !!TG?.platform;
+    const HINT_KEY = 'tishina_hint_bg';
+
+    const hint = document.getElementById('hint');
+
+    function maybeShowHint() {
+      if (!isIOS || !inTelegram) return;
+      try { if (localStorage.getItem(HINT_KEY)) return; } catch (e) {}
+      hint.classList.add('show');
+    }
+
+    function hideHint(forever) {
+      hint.classList.remove('show');
+      if (forever) { try { localStorage.setItem(HINT_KEY, '1'); } catch (e) {} }
+    }
+
+    document.getElementById('hint-close').addEventListener('click', () => hideHint(true));
+
+    document.getElementById('hint-open').addEventListener('click', () => {
+      // Переносим текущий микс и доступ, чтобы в браузере всё было как здесь
+      const p = new URLSearchParams();
+      SOUNDS.forEach(s => { if (state[s.id].active) p.set(s.id, Math.round(state[s.id].volume*100)); });
+      if (IS_PRO) p.set('pro', '1');
+      p.set('lang', lang);
+      const url = location.origin + location.pathname + '?' + p;
+
+      hideHint(true);
+      if (TG?.openLink) TG.openLink(url, { try_instant_view: false });
+      else window.open(url, '_blank');
+    });
 
     // ───────────────────────────────────────── Применение языка
     function applyLang() {
