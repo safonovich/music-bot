@@ -441,9 +441,30 @@
       try { TG.disableVerticalSwipes(); } catch (e) {}
     }
 
-    // Платные звуки открыты, если бот передал ?pro=1
+    // Платные звуки открывает бот через ?pro=1. Запоминаем это,
+    // потому что Telegram может открыть приложение из кэша — без параметра.
     const QS = new URLSearchParams(location.search);
-    const IS_PRO = QS.get('pro') === '1';
+    const UID = TG?.initDataUnsafe?.user?.id || 0;
+    const PRO_KEY = 'tishina_pro';
+
+    const IS_PRO = (() => {
+      const flag = QS.get('pro');
+
+      if (flag === '1') {
+        try { localStorage.setItem(PRO_KEY, String(UID)); } catch (e) {}
+        return true;
+      }
+      if (flag === '0') {          // бот сказал: доступа больше нет
+        try { localStorage.removeItem(PRO_KEY); } catch (e) {}
+        return false;
+      }
+      // Параметра нет — открыли из кэша. Вспоминаем прошлый ответ бота.
+      try {
+        const saved = localStorage.getItem(PRO_KEY);
+        if (saved !== null && String(UID) === saved) return true;
+      } catch (e) {}
+      return false;
+    })();
 
     // ───────────────────────────────────────── Языки
     const I18N = {
@@ -566,72 +587,109 @@
     const FADE = 0.4, TIMER_FADE = 30;
 
     // ───────────────────────────────────────── Аудио
-    let ctx = null, master = null;
-    const buffers = {}, nodes = {}, loading = {}, state = {};
+    // Воспроизведение — на обычных медиаэлементах, а не Web Audio.
+    // iOS приостанавливает Web Audio при блокировке экрана, а <audio>
+    // считает медиаплеером и продолжает играть с погашенным экраном.
+    const els = {}, state = {}, fades = {};
+    let masterVol = 1;                // общая громкость (нужна таймеру)
 
-    function ensureCtx() {
-      if (!ctx) {
-        ctx = new (window.AudioContext || window.webkitAudioContext)();
-        master = ctx.createGain();
-        master.gain.value = 1;
-        master.connect(ctx.destination);
-      }
-      if (ctx.state === 'suspended') ctx.resume();
-      return ctx;
+    // Safari лупит AAC без разрыва, mp3 оставляем как запасной вариант
+    const canAAC = (() => {
+      const a = document.createElement('audio');
+      return !!a.canPlayType('audio/mp4; codecs="mp4a.40.2"');
+    })();
+    const fileFor = s => canAAC ? s.file.replace('.mp3', '.m4a') : s.file;
+
+    function ensureEl(id) {
+      if (els[id]) return els[id];
+      const s = SOUNDS.find(x => x.id === id);
+      const el = new Audio();
+      el.src = fileFor(s);
+      el.loop = true;
+      el.preload = 'auto';
+      el.volume = 0;
+      el.setAttribute('playsinline', '');
+      el.addEventListener('waiting', () => setCardLoading(id, true));
+      el.addEventListener('playing', () => setCardLoading(id, false));
+      el.addEventListener('canplaythrough', () => setCardLoading(id, false));
+      el.addEventListener('error', () => { setCardLoading(id, false); showToast(t('loadFail')); });
+      els[id] = el;
+      return el;
     }
 
-    function loadBuffer(id, file) {
-      if (buffers[id]) return Promise.resolve(buffers[id]);
-      if (loading[id]) return loading[id];
-      setCardLoading(id, true);
-      loading[id] = fetch(file)
-        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
-        .then(ab => ensureCtx().decodeAudioData(ab))
-        .then(buf => { buffers[id] = buf; setCardLoading(id, false); delete loading[id]; return buf; })
-        .catch(err => { setCardLoading(id, false); delete loading[id]; showToast(t('loadFail')); throw err; });
-      return loading[id];
+    /** Плавное изменение громкости. Через setInterval, потому что
+        requestAnimationFrame в фоне останавливается. */
+    function fadeTo(id, target, seconds, onDone) {
+      const el = els[id];
+      if (!el) return;
+      clearInterval(fades[id]);
+      const from = el.volume, steps = Math.max(1, Math.round(seconds * 20));
+      let i = 0;
+      fades[id] = setInterval(() => {
+        i++;
+        const v = from + (target - from) * (i / steps);
+        try { el.volume = Math.max(0, Math.min(1, v)); } catch (e) {}
+        if (i >= steps) {
+          clearInterval(fades[id]);
+          delete fades[id];
+          if (onDone) onDone();
+        }
+      }, seconds * 1000 / steps);
     }
+
+    const ensureCtx = () => {};   // осталось от прежнего движка, вызовы безвредны
 
     async function startSound(id) {
-      const s = SOUNDS.find(x => x.id === id);
-      ensureCtx();
-      const buf = await loadBuffer(id, s.file);
-      if (!state[id].active || nodes[id]) return;
-
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.loop = true;
-      const gain = ctx.createGain();
-      gain.gain.value = 0;
-      gain.gain.linearRampToValueAtTime(state[id].volume, ctx.currentTime + FADE);
-      src.connect(gain).connect(master);
-      src.start(0);
-      nodes[id] = { src, gain };
+      const el = ensureEl(id);
+      setCardLoading(id, true);
+      try {
+        el.volume = 0;
+        await el.play();
+        setCardLoading(id, false);
+        fadeTo(id, state[id].volume * masterVol, FADE);
+      } catch (e) {
+        setCardLoading(id, false);
+      }
       updateMediaSession();
     }
 
     function stopSound(id, fade = FADE) {
-      const n = nodes[id];
-      if (!n) return;
-      const tt = ctx.currentTime;
-      n.gain.gain.cancelScheduledValues(tt);
-      n.gain.gain.setValueAtTime(n.gain.gain.value, tt);
-      n.gain.gain.linearRampToValueAtTime(0, tt + fade);
-      const src = n.src;
-      setTimeout(() => { try { src.stop(); } catch (e) {} }, (fade + 0.05) * 1000);
-      delete nodes[id];
+      const el = els[id];
+      if (!el) return;
+      fadeTo(id, 0, fade, () => { try { el.pause(); el.currentTime = 0; } catch (e) {} });
       updateMediaSession();
     }
 
     function setVolume(id, v, ramp = 0.08) {
       state[id].volume = v;
-      const n = nodes[id];
-      if (!n) return;
-      const tt = ctx.currentTime;
-      n.gain.gain.cancelScheduledValues(tt);
-      n.gain.gain.setValueAtTime(n.gain.gain.value, tt);
-      n.gain.gain.linearRampToValueAtTime(v, tt + ramp);
+      if (els[id] && !els[id].paused) fadeTo(id, v * masterVol, ramp);
     }
+
+    /** Общая громкость — для плавного затухания по таймеру. */
+    function setMasterVolume(v, seconds) {
+      const from = masterVol, steps = Math.max(1, Math.round(seconds * 10));
+      let i = 0;
+      clearInterval(setMasterVolume._t);
+      setMasterVolume._t = setInterval(() => {
+        i++;
+        masterVol = from + (v - from) * (i / steps);
+        SOUNDS.forEach(s => {
+          const el = els[s.id];
+          if (el && !el.paused && !fades[s.id]) {
+            try { el.volume = Math.max(0, Math.min(1, state[s.id].volume * masterVol)); } catch (e) {}
+          }
+        });
+        if (i >= steps) clearInterval(setMasterVolume._t);
+      }, seconds * 1000 / steps);
+    }
+
+    // Если система всё же приостановила воспроизведение — возвращаем
+    setInterval(() => {
+      SOUNDS.forEach(s => {
+        const el = els[s.id];
+        if (state[s.id].active && el && el.paused) el.play().catch(() => {});
+      });
+    }, 3000);
 
     // ───────────────────────────────────────── Сетки
     const gridFree  = document.getElementById('grid');
@@ -861,16 +919,12 @@
       const ms = min * 60000;
       timerEnd = Date.now() + ms;
       fadeTimeout = setTimeout(() => {
-        if (!ctx) return;
         timerDisplay.classList.add('fading');
-        const tt = ctx.currentTime;
-        master.gain.cancelScheduledValues(tt);
-        master.gain.setValueAtTime(master.gain.value, tt);
-        master.gain.linearRampToValueAtTime(0.0001, tt + TIMER_FADE);
+        setMasterVolume(0.0001, TIMER_FADE);
       }, Math.max(0, ms - TIMER_FADE*1000));
       timerTimeout = setTimeout(() => {
         stopAll();
-        if (master) master.gain.value = 1;
+        masterVol = 1;
         showToast(t('timerDone'));
       }, ms);
       btnTimer.classList.add('active');
@@ -890,12 +944,7 @@
       btnTimer.classList.remove('active');
       timerDisplay.textContent = '';
       timerDisplay.classList.remove('fading');
-      if (ctx && master) {
-        const tt = ctx.currentTime;
-        master.gain.cancelScheduledValues(tt);
-        master.gain.setValueAtTime(master.gain.value, tt);
-        master.gain.linearRampToValueAtTime(1, tt + 0.5);
-      }
+      if (masterVol < 1) setMasterVolume(1, 0.5);
     }
 
     function updateTimerDisplay() {
@@ -944,18 +993,8 @@
     }
 
     // ───────────────────────────────────────── Фоновое воспроизведение
-    let keepAlive = null;
-    function initKeepAlive() {
-      if (keepAlive) return;
-      keepAlive = new Audio('data:audio/wav;base64,UklGRjIAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQ4AAAAAAAAAAAAAAAAAAAAAAA==');
-      keepAlive.loop = true;
-      keepAlive.volume = 0.001;
-      keepAlive.play().catch(() => {});
-    }
-
     function updateMediaSession() {
       const playing = SOUNDS.some(s => state[s.id].active);
-      if (playing) initKeepAlive(); else if (keepAlive) keepAlive.pause();
       if (!('mediaSession' in navigator)) return;
       navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
       if (playing) {
@@ -971,9 +1010,16 @@
       }
     }
 
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && ctx && ctx.state === 'suspended') ctx.resume();
-    });
+    // Вернулись в приложение — убеждаемся, что всё ещё звучит
+    function wake() {
+      SOUNDS.forEach(s => {
+        const el = els[s.id];
+        if (state[s.id].active && el && el.paused) el.play().catch(() => {});
+      });
+    }
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
+    window.addEventListener('focus', wake);
+    window.addEventListener('pageshow', wake);
 
     // ───────────────────────────────────────── Применение языка
     function applyLang() {
