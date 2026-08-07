@@ -154,6 +154,61 @@
       border-style: dashed;
     }
 
+    /* ── Атмосферы: крупные карточки вместо ползунков ── */
+    .scenes { padding: 10px 14px 0; display: flex; flex-direction: column; gap: 9px; }
+
+    .scene {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      padding: 15px 16px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: var(--card);
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+      transition: border-color 0.25s, background 0.25s, transform 0.1s;
+      position: relative;
+    }
+    .scene:active { transform: scale(0.99); }
+    .scene.active {
+      background: var(--card-active);
+      border-color: var(--accent);
+      box-shadow: 0 0 20px var(--accent-soft);
+    }
+    .scene.blocked { opacity: 0.5; }
+
+    .scene .ic {
+      width: 26px; height: 26px;
+      flex-shrink: 0;
+      color: var(--text-dim);
+      transition: color 0.25s;
+    }
+    .scene.active .ic { color: var(--accent); }
+    .scene .ic svg { width: 100%; height: 100%; }
+
+    .scene .txt { flex: 1; min-width: 0; }
+    .scene .nm {
+      font-size: 14.5px;
+      font-weight: 500;
+      color: var(--text);
+      letter-spacing: 0.2px;
+    }
+    .scene.active .nm { color: var(--accent); }
+    .scene .ds {
+      font-size: 11.5px;
+      color: var(--text-dim);
+      margin-top: 2px;
+      line-height: 1.35;
+    }
+    .scene .lk {
+      width: 12px; height: 12px;
+      flex-shrink: 0;
+      color: var(--text-dim);
+      opacity: 0.5;
+    }
+
     /* ── Сетка звуков ── */
     .pane { display: none; }
     .pane.active { display: block; }
@@ -569,7 +624,22 @@
     const I18N = {
       ru: {
         slogan: 'Включи фоновое спокойствие',
+        scenes: 'Атмосферы',
         nature: 'Природа', city: 'Город', transport: 'Транспорт', tones: 'Тона',
+        sc: {
+          paris:  ['Парижское кафе', 'Гул зала, улица за дверью, дождь'],
+          night:  ['Ночной поезд',   'Стук колёс, дождь в окно, редкие голоса'],
+          airport:['Зал ожидания',   'Далёкие объявления, шаги, ровный гул'],
+          deep:   ['Глубокая работа','Офис, клавиши, дождь и альфа-ритм'],
+          window: ['Дождь в окно',   'Камин рядом, капли по стеклу'],
+          morning:['Утро в парке',   'Птицы, ветер в листве, шаги вдали'],
+          ocean:  ['Океан и сон',    'Волны, дождь, медленный дельта-ритм'],
+          hearth: ['Вечер у огня',   'Камин, потрескивание, поющая чаша'],
+          metro:  ['Метро',          'Тоннель, толпа, дождь наверху'],
+          flight: ['Полёт',          'Салон самолёта, ровный шум высоты'],
+          shop:   ['Городской день', 'Магазин, голоса, улица, дождь'],
+          sail:   ['На воде',        'Мотор, волны о борт, ветер'],
+        },
         animate: 'Оживить', timer: 'Таймер', stop: 'Стоп', share: 'Поделиться',
         min: 'мин', cancel: 'Отмена', save: 'Сохранить',
         saveTitle: 'Сохранить микс', namePh: 'Например: Вечер',
@@ -603,7 +673,22 @@
       },
       en: {
         slogan: 'Turn on background calm',
+        scenes: 'Scenes',
         nature: 'Nature', city: 'City', transport: 'Transport', tones: 'Tones',
+        sc: {
+          paris:  ['Paris Cafe',     'Room murmur, street outside, light rain'],
+          night:  ['Night Train',    'Wheels on rails, rain, distant voices'],
+          airport:['Airport Lounge', 'Far announcements, footsteps, steady hum'],
+          deep:   ['Deep Work',      'Office, keys, rain and alpha rhythm'],
+          window: ['Rainy Window',   'Fireplace nearby, drops on glass'],
+          morning:['Morning Park',   'Birds, wind in leaves, steps away'],
+          ocean:  ['Ocean Sleep',    'Waves, rain, slow delta rhythm'],
+          hearth: ['Fireside',       'Fireplace, crackling, singing bowl'],
+          metro:  ['Metro',          'Tunnel, crowd, rain above'],
+          flight: ['In Flight',      'Cabin, the even hum of altitude'],
+          shop:   ['City Day',       'Shop, voices, street, rain'],
+          sail:   ['On the Water',   'Engine, waves on the hull, wind'],
+        },
         animate: 'Animate', timer: 'Timer', stop: 'Stop', share: 'Share',
         min: 'min', cancel: 'Cancel', save: 'Save',
         saveTitle: 'Save mix', namePh: 'For example: Evening',
@@ -717,6 +802,24 @@
       ]},
     ];
 
+    // Атмосферы — готовые места, собранные из имеющихся звуков.
+    // В каждой есть бесплатный слой: без подписки она звучит беднее,
+    // но звучит, а не молчит.
+    const SCENES = [
+      { id:'paris',   ic:'cafe',    mix:{ cafe:52, street:26, rain:34 } },
+      { id:'night',   ic:'train',   mix:{ train:50, rain:32, crowd:16 } },
+      { id:'airport', ic:'airport', mix:{ airport:48, crowd:22, wind:20 } },
+      { id:'deep',    ic:'office',  mix:{ office:44, rain:30, softnoise:26, alpha:24 } },
+      { id:'window',  ic:'window',  mix:{ window:52, hearth:30, rain:26, deepnoise:18 } },
+      { id:'morning', ic:'park',    mix:{ park:46, birds:34, wind:20 } },
+      { id:'ocean',   ic:'waves',   mix:{ waves:52, rain:26, delta:24 } },
+      { id:'hearth',  ic:'hearth',  mix:{ hearth:48, fire:36, bowl:22 } },
+      { id:'metro',   ic:'metro',   mix:{ metro:46, crowd:20, deepnoise:20, rain:18 } },
+      { id:'flight',  ic:'plane',   mix:{ plane:50, softnoise:24, ambient:22 } },
+      { id:'shop',    ic:'shop',    mix:{ shop:44, crowd:26, street:20, rain:18 } },
+      { id:'sail',    ic:'boat',    mix:{ boat:48, waves:34, wind:24 } },
+    ];
+
     const SOUNDS = CATS.flatMap(c => c.sounds.map(s => ({ ...s, cat: c.id, file: s.id + '.mp3' })));
     const allowed = s => !!s.free || IS_PRO;
     const FADE = 0.4, TIMER_FADE = 30;
@@ -820,7 +923,10 @@
     const panesBox = document.getElementById('panes');
     let activeCat = 0;
 
-    CATS.forEach((c, i) => {
+    // Первая вкладка — атмосферы, дальше склад звуков по категориям
+    const TABS = [{ id: 'scenes' }, ...CATS];
+
+    TABS.forEach((c, i) => {
       const tab = document.createElement('button');
       tab.className = 'tab' + (i === 0 ? ' active' : '');
       tab.dataset.cat = c.id;
@@ -829,6 +935,32 @@
 
       const pane = document.createElement('div');
       pane.className = 'pane' + (i === 0 ? ' active' : '');
+
+      if (c.id === 'scenes') {
+        const box = document.createElement('div');
+        box.className = 'scenes';
+        SCENES.forEach(sc => {
+          // Доступна, если открыт хотя бы один непустой слой сверх бесплатных
+          const full = Object.keys(sc.mix).every(id => {
+            const snd = SOUNDS.find(x => x.id === id);
+            return snd && (snd.free || IS_PRO);
+          });
+          const b = document.createElement('button');
+          b.className = 'scene' + (full ? '' : ' blocked');
+          b.dataset.scene = sc.id;
+          b.innerHTML =
+            '<span class="ic">' + IC[sc.ic] + '</span>' +
+            '<span class="txt"><span class="nm" data-sn="' + sc.id + '"></span>' +
+            '<span class="ds" data-sd="' + sc.id + '"></span></span>' +
+            (full ? '' : LOCK.replace('class="badge"', 'class="lk"'));
+          b.addEventListener('click', () => playScene(sc, b, full));
+          box.appendChild(b);
+        });
+        pane.appendChild(box);
+        panesBox.appendChild(pane);
+        return;
+      }
+
       const grid = document.createElement('div');
       grid.className = 'grid';
       pane.appendChild(grid);
@@ -857,7 +989,7 @@
     });
 
     function showCat(i) {
-      activeCat = Math.max(0, Math.min(CATS.length - 1, i));
+      activeCat = Math.max(0, Math.min(TABS.length - 1, i));
       tabsBox.querySelectorAll('.tab').forEach((el, k) => el.classList.toggle('active', k === activeCat));
       panesBox.querySelectorAll('.pane').forEach((el, k) => el.classList.toggle('active', k === activeCat));
       const tab = tabsBox.children[activeCat];
@@ -877,13 +1009,29 @@
       }
     }, { passive: true });
 
+    let activeScene = null;
+
+    function playScene(sc, btn, full) {
+      if (!full && !IS_PRO) {
+        // Часть слоёв закрыта — включим что можно и скажем про остальное
+        showToast(t('locked'));
+      }
+      const same = activeScene === sc.id;
+      document.querySelectorAll('.scene').forEach(x => x.classList.remove('active'));
+      clearMixHighlight();
+      if (same) { activeScene = null; stopAll(); return; }
+      activeScene = sc.id;
+      btn.classList.add('active');
+      applyMix(sc.mix);
+    }
+
     const setCardLoading = (id, on) => document.getElementById('card-'+id)?.classList.toggle('loading', on);
     const setCardActive  = (id, on) => document.getElementById('card-'+id)?.classList.toggle('active', on);
 
     function toggleSound(id) {
       const s = SOUNDS.find(x => x.id === id);
       if (!allowed(s)) { showToast(t('locked')); return; }
-      clearMixHighlight();
+      clearMixHighlight(); clearSceneHighlight();
       const st = state[id];
       st.active = !st.active;
       setCardActive(id, st.active);
@@ -896,7 +1044,7 @@
     function onSlider(id, el) {
       const s = SOUNDS.find(x => x.id === id);
       if (!allowed(s)) { el.value = 0; el.style.setProperty('--val','0%'); showToast(t('locked')); return; }
-      clearMixHighlight();
+      clearMixHighlight(); clearSceneHighlight();
       const v = el.value / 100;
       el.style.setProperty('--val', el.value + '%');
       setVolume(id, v);
@@ -921,6 +1069,11 @@
       activeMix = null;
       document.querySelectorAll('.mix-btn').forEach(b => b.classList.remove('active'));
     };
+
+    function clearSceneHighlight() {
+      activeScene = null;
+      document.querySelectorAll('.scene').forEach(x => x.classList.remove('active'));
+    }
 
     function currentMix() {
       const m = {};
@@ -1090,7 +1243,7 @@
         }
       });
       if (animateInterval) { clearInterval(animateInterval); animateInterval = null; btnAnimate.classList.remove('active'); }
-      clearMixHighlight();
+      clearMixHighlight(); clearSceneHighlight();
       cancelTimer();
       refreshStopBtn();
       saveLastMix();
@@ -1246,6 +1399,8 @@
       lb.title = lang === 'ru' ? 'English' : 'Русский';
 
       tabsBox.querySelectorAll('.tab').forEach(el => { el.textContent = t(el.dataset.cat); });
+      document.querySelectorAll('[data-sn]').forEach(el => { el.textContent = t('sc')[el.dataset.sn][0]; });
+      document.querySelectorAll('[data-sd]').forEach(el => { el.textContent = t('sc')[el.dataset.sd][1]; });
       document.querySelectorAll('[data-name]').forEach(el => { el.textContent = t('names')[el.dataset.name]; });
 
       btnAnimate.textContent = t('animate');
