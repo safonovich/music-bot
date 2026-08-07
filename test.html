@@ -928,7 +928,6 @@
       <div id="panes"></div>
 
       <div class="row-actions">
-        <button class="btn" id="btn-animate"></button>
         <button class="btn" id="btn-save"></button>
         <button class="btn" id="btn-share"></button>
       </div>
@@ -1004,7 +1003,7 @@
         headStatesIdle: 'Куда вы хотите попасть',
         headMixes: 'Ваши миксы',
         headLayers: 'Состав пространства',
-        headAdd: 'Добавить звук',
+        headAdd: 'Добавить элемент',
         ask: 'Куда вы хотите попасть?',
         askSub: 'Выберите состояние — среда включится сама.\nНастроить можно потом.',
         nature: 'Природа', city: 'Город', transport: 'Транспорт', tones: 'Тона',
@@ -1015,8 +1014,8 @@
         rec: 'Рекомендуем', others: 'Другие атмосферы', otherStates: 'Другие состояния',
         start: 'Начать', noTimer: 'Без таймера', tillMorning: 'До утра',
         fitted: 'Подобрали совместимую громкость',
-        tuneTitle: 'Настроить атмосферу', headAtmo: 'Ощущение',
-        atmoSoft: 'Мягкая', atmoMid: 'Сбалансированная', atmoRich: 'Насыщенная',
+        tuneTitle: 'Подстроить пространство', headAtmo: 'Глубина состояния',
+        atmoSoft: 'Лёгкое погружение', atmoMid: 'Глубокое состояние', atmoRich: 'Полное погружение',
         warmL: 'Теплее', warmR: 'Просторнее', aliveL: 'Спокойнее', aliveR: 'Живее',
         detailOpen: 'Глубокая настройка', detailClose: 'Свернуть',
         tuneSub: 'Уберите лишнее или добавьте своё. Изменения слышны сразу.',
@@ -1024,7 +1023,8 @@
         copied: '✓ Ссылка скопирована', linkReady: '✓ Ссылка готова',
         saved: '✓ Сохранено', deleted: 'Микс удалён',
         needSounds: 'Сначала включите звуки', maxPresets: 'Максимум 8 миксов',
-        loadFail: 'Не удалось загрузить звук',
+        loadFail: 'Один элемент пространства недоступен — остальное звучит',
+        agoJust: 'только что', agoMin: 'мин назад', agoH: 'ч назад',
         timerDone: 'Таймер завершён',
         resumeHint: 'Ваше состояние сохранено — нажмите «Продолжить»',
         payTitle: 'Глубокая ТИШИНА',
@@ -1059,7 +1059,7 @@
         headStatesIdle: 'Where do you want to be',
         headMixes: 'Your mixes',
         headLayers: 'Inside the space',
-        headAdd: 'Add a sound',
+        headAdd: 'Add an element',
         ask: 'Where do you want to be?',
         askSub: 'Pick a state — the sound starts itself.\nYou can tune it later.',
         nature: 'Nature', city: 'City', transport: 'Transport', tones: 'Tones',
@@ -1070,8 +1070,8 @@
         rec: 'Recommended', others: 'More atmospheres', otherStates: 'Other states',
         start: 'Start', noTimer: 'No timer', tillMorning: 'Till morning',
         fitted: 'Balanced it into the atmosphere',
-        tuneTitle: 'Tune the atmosphere', headAtmo: 'Feel',
-        atmoSoft: 'Soft', atmoMid: 'Balanced', atmoRich: 'Rich',
+        tuneTitle: 'Tune the space', headAtmo: 'Depth of state',
+        atmoSoft: 'Light immersion', atmoMid: 'Deep state', atmoRich: 'Full immersion',
         warmL: 'Warmer', warmR: 'Airier', aliveL: 'Calmer', aliveR: 'Livelier',
         detailOpen: 'Deep control', detailClose: 'Collapse',
         tuneSub: 'Remove what you do not need, add what you do. You hear it instantly.',
@@ -1079,7 +1079,8 @@
         copied: '✓ Link copied', linkReady: '✓ Link ready',
         saved: '✓ Saved', deleted: 'Mix deleted',
         needSounds: 'Turn on some sounds first', maxPresets: 'Maximum 8 mixes',
-        loadFail: 'Could not load sound',
+        loadFail: 'One element of the space is unavailable — the rest keeps playing',
+        agoJust: 'just now', agoMin: 'min ago', agoH: 'h ago',
         timerDone: 'Timer finished',
         resumeHint: 'Your state is saved — tap Resume',
         payTitle: 'Deep TISHINA',
@@ -1523,6 +1524,7 @@
     let current = null;
     let startedAt = 0;
     let openedState = null;
+    let agoText = '';
 
     function label() {
       if (!current) return { top: '', sub: '' };
@@ -1699,6 +1701,8 @@
 
     function updateClock() {
       if (!anyActive()) { clockEl.textContent = ''; return; }
+      // Вернулись после перерыва: показываем не 0:00, а «12 мин назад»
+      if (paused && agoText) { clockEl.classList.remove('timer'); clockEl.textContent = agoText; return; }
       if (timerEnd) {
         const left = Math.max(0, timerEnd - Date.now());
         const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
@@ -1711,7 +1715,7 @@
       const h = Math.floor(e / 3600000), m = Math.floor((e % 3600000) / 60000), s = Math.floor((e % 60000) / 1000);
       clockEl.textContent = (h ? h + ':' + String(m).padStart(2, '0') : String(m)) + ':' + String(s).padStart(2, '0');
     }
-    setInterval(updateClock, 1000);
+    setInterval(() => { updateClock(); if (mini.classList.contains('on')) refreshMini(); }, 1000);
 
     btnPP.addEventListener('click', () => { paused ? resumeAll() : pauseAll(); });
     document.getElementById('now-stop').addEventListener('click', stopAll);
@@ -1729,13 +1733,14 @@
 
     function resumeAll() {
       paused = false;
+      agoText = '';
+      startedAt = startedAt || Date.now();
       SOUNDS.forEach(s => { if (state[s.id].active) startSound(s.id, 0.7); });
       refreshAll();
     }
 
     function stopAll() {
       SOUNDS.forEach(s => { if (state[s.id].active) { state[s.id].active = false; stopSound(s.id); } });
-      stopAnimate();
       current = null;
       paused = false;
       clearMixHighlight();
@@ -1756,7 +1761,10 @@
       const l = label();
       // Человек видит состояние, в котором находится, а не список файлов
       document.getElementById('mini-nm').textContent = t('eyebrow') + ' · ' + l.top;
-      document.getElementById('mini-ds').textContent = l.sub;
+      const m = paused && agoText ? agoText
+        : Math.floor(Math.max(0, Date.now() - startedAt) / 60000);
+      document.getElementById('mini-ds').textContent =
+        l.sub + (typeof m === 'string' ? ' · ' + m : (m >= 1 ? ' · ' + m + ' ' + t('min') : ''));
       miniPP.innerHTML = paused ? PLAY_IC : PAUSE_IC;
     }
     mini.addEventListener('click', e => {
@@ -1980,7 +1988,7 @@
 
     function saveLast() {
       const s = loadStore();
-      s.last = anyActive() ? { mix: currentMix(), ref: current, atmo: { ...atmo } } : null;
+      s.last = anyActive() ? { mix: currentMix(), ref: current, atmo: { ...atmo }, ts: Date.now() } : null;
       saveStore(s);
     }
     let saveDebounce = null;
@@ -2054,34 +2062,18 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  Оживить — медленный дрейф громкостей
+    //  Пространство дышит само: медленный едва заметный дрейф
+    //  громкостей. Раньше это была кнопка «Оживить» — теперь это
+    //  свойство среды, а не функция, которую нужно найти и включить.
     // ═══════════════════════════════════════════════════════════════
-    let animateInterval = null;
-    const btnAnimate = document.getElementById('btn-animate');
-    btnAnimate.addEventListener('click', () => {
-      if (animateInterval) stopAnimate();
-      else {
-        if (!anyActive()) { showToast(t('needSounds')); return; }
-        animateInterval = setInterval(animateStep, 4000);
-        btnAnimate.classList.add('active');
-        animateStep();
-      }
-    });
-
-    function stopAnimate() {
-      if (!animateInterval) return;
-      clearInterval(animateInterval); animateInterval = null;
-      btnAnimate.classList.remove('active');
-    }
-
-    function animateStep() {
+    setInterval(() => {
+      if (paused || !anyActive()) return;
       SOUNDS.forEach(s => {
         if (!state[s.id].active) return;
-        const next = Math.min(0.98, Math.max(0.05, state[s.id].volume + (Math.random() - 0.5) * 0.35));
-        setVolume(s.id, next, 3.5);
+        const next = Math.min(0.98, Math.max(0.04, state[s.id].volume + (Math.random() - 0.5) * 0.12));
+        setVolume(s.id, next, 7);
       });
-      if (view === 'tune') renderLayers();
-    }
+    }, 9000);
 
     // ═══════════════════════════════════════════════════════════════
     //  Таймер
@@ -2296,7 +2288,6 @@
 
       btnTimer.textContent = t('timer');
       btnTune.textContent  = t('tune');
-      btnAnimate.textContent = t('animate');
       document.getElementById('btn-save').textContent  = t('save');
       document.getElementById('btn-share').textContent = t('share');
 
@@ -2350,6 +2341,13 @@
         const last = loadStore().last;
         if (last && last.mix && Object.keys(last.mix).length) {
           mix = last.mix; ref = last.ref || null; savedAtmo = last.atmo || null;
+          // «12 минут назад» на карточке — мостик обратно в состояние
+          if (last.ts) {
+            const d = Date.now() - last.ts;
+            if (d < 90 * 1000) agoText = t('agoJust');
+            else if (d < 60 * 60000) agoText = Math.round(d / 60000) + ' ' + t('agoMin');
+            else if (d < 12 * 3600000) agoText = Math.round(d / 3600000) + ' ' + t('agoH');
+          }
         }
       }
       if (!Object.keys(mix).length) return;
