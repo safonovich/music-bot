@@ -1,0 +1,2382 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>ТИШИНА</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: #000000;
+      --card: #0c0b09;
+      --card-active: #17130a;
+      --line: #221d13;
+      --accent: #d0a94e;
+      --accent-soft: rgba(208, 169, 78, 0.24);
+      --text: #ece3cf;
+      --text-dim: #7c756a;
+      --radius: 18px;
+      --top: max(env(safe-area-inset-top, 0px), 12px);
+      --bottom: max(env(safe-area-inset-bottom, 0px), 10px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─────────────────────────── Экраны ─────────────────────────── */
+    .view {
+      display: none;
+      flex-direction: column;
+      min-height: 100vh;
+      padding-bottom: calc(var(--bottom) + 20px);
+      animation: viewIn 0.28s ease;
+    }
+    .view.on { display: flex; }
+    @keyframes viewIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: calc(var(--top) + 44px) 16px 4px;
+      min-height: 30px;
+    }
+    .topbar .brand {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--accent);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      flex: 1;
+    }
+    .topbar.center .brand { text-align: center; }
+
+    .icon-btn {
+      width: 32px; height: 32px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 15px; line-height: 1;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.2s, transform 0.1s, color 0.2s;
+    }
+    .icon-btn:active { transform: scale(0.9); }
+    .icon-btn svg { width: 16px; height: 16px; }
+
+    /* ─────────────────────────── Сейчас ─────────────────────────── */
+    #now-card {
+      display: none;
+      position: relative;
+      margin: 10px 14px 4px;
+      padding: 26px 20px 20px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: linear-gradient(180deg, var(--card-active), var(--card));
+      text-align: center;
+    }
+    #now-card.on { display: block; }
+
+    /* Дыхание — медленный пульс за текстом, ритм 11 секунд */
+    .breath-wrap {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      border-radius: inherit;
+      pointer-events: none;
+    }
+    .breath {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 260px; height: 260px;
+      margin: -130px 0 0 -130px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--accent-soft) 0%, transparent 68%);
+      opacity: 0.55;
+      pointer-events: none;
+      animation: breathe 11s ease-in-out infinite;
+    }
+    @keyframes breathe {
+      0%, 100% { transform: scale(0.78); opacity: 0.32; }
+      45%      { transform: scale(1.12); opacity: 0.62; }
+    }
+    #now-card.paused .breath { animation-play-state: paused; opacity: 0.14; }
+
+    .now-inner { position: relative; z-index: 1; }
+
+    .now-stop {
+      position: absolute;
+      top: 12px; right: 12px;
+      width: 28px; height: 28px;
+      z-index: 2;
+      border: none; background: transparent;
+      color: var(--text-dim);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; opacity: 0.6;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .now-stop:active { transform: scale(0.9); opacity: 1; }
+    .now-stop svg { width: 14px; height: 14px; }
+
+    .now-eyebrow {
+      font-size: 11px;
+      letter-spacing: 2.4px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+    .now-state {
+      font-size: 27px;
+      font-weight: 500;
+      color: var(--text);
+      letter-spacing: 0.2px;
+      line-height: 1.15;
+    }
+    .now-env {
+      margin-top: 7px;
+      font-size: 13.5px;
+      color: var(--accent);
+      letter-spacing: 0.3px;
+    }
+    .now-layers {
+      margin-top: 5px;
+      font-size: 11.5px;
+      color: var(--text-dim);
+      line-height: 1.45;
+    }
+    .now-clock {
+      margin-top: 14px;
+      font-size: 13px;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+    .now-clock.timer { color: var(--accent); }
+    .now-clock.fading { animation: pulse 1.6s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .now-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px 4px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      font-size: 12.5px;
+      font-weight: 500;
+      font-family: inherit;
+      letter-spacing: 0.2px;
+      cursor: pointer;
+      background: transparent;
+      color: var(--text-dim);
+      transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.1s, opacity 0.25s;
+    }
+    .btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+    .btn.lead { background: var(--accent); color: #000; border-color: var(--accent); }
+    .btn:active { transform: scale(0.95); }
+    .btn:disabled { opacity: 0.35; cursor: default; }
+
+    /* Пустое состояние — вопрос вместо каталога */
+    #now-empty { display: none; padding: 30px 22px 20px; text-align: center; }
+    #now-empty.on { display: block; }
+    #now-empty .ask {
+      font-size: 22px;
+      color: var(--text);
+      line-height: 1.3;
+      font-weight: 400;
+    }
+    #now-empty .sub {
+      margin-top: 8px;
+      font-size: 12.5px;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    .section-head {
+      padding: 20px 18px 8px;
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    /* ─────────────────────────── Состояния ─────────────────────────── */
+    .states { padding: 0 14px; display: flex; flex-direction: column; gap: 8px; }
+
+    .state {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 15px 16px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--card);
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+      width: 100%;
+      transition: border-color 0.25s, background 0.25s, transform 0.1s;
+    }
+    .state:active { transform: scale(0.99); }
+    .state.now { border-color: var(--accent); background: var(--card-active); }
+
+    .state .ic {
+      width: 25px; height: 25px;
+      flex-shrink: 0;
+      color: var(--text-dim);
+      transition: color 0.25s;
+    }
+    .state.now .ic { color: var(--accent); }
+    .state .ic svg { width: 100%; height: 100%; }
+
+    .state .txt { flex: 1; min-width: 0; }
+    .state .nm {
+      display: block;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text);
+      letter-spacing: 0.2px;
+    }
+    .state.now .nm { color: var(--accent); }
+    .state .ds {
+      display: block;
+      font-size: 11.5px;
+      color: var(--text-dim);
+      margin-top: 3px;
+      line-height: 1.35;
+    }
+    .state .chev { width: 14px; height: 14px; flex-shrink: 0; color: var(--text-dim); opacity: 0.45; }
+
+    /* ─────────────────────────── Среды внутри состояния ─────────────────────────── */
+    .state-head { padding: 14px 20px 4px; }
+    .state-head .eyebrow {
+      font-size: 11px;
+      letter-spacing: 2.4px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+      min-height: 13px;
+    }
+
+    .tune-main { padding: 16px 14px 4px; }
+    .pp-lead {
+      width: 100%;
+      padding: 15px 0;
+      border: none;
+      border-radius: 14px;
+      background: var(--accent);
+      color: #000;
+      font-size: 15px; font-weight: 600; font-family: inherit;
+      cursor: pointer;
+      transition: transform 0.1s, background 0.25s, color 0.25s;
+    }
+    .pp-lead:active { transform: scale(0.98); }
+    .pp-lead.paused { background: transparent; color: var(--accent); border: 1px solid var(--accent); padding: 14px 0; }
+
+    .state-head .h1 {
+      font-size: 26px;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.15;
+    }
+    .state-head .mood {
+      margin-top: 8px;
+      font-size: 12.5px;
+      color: var(--text-dim);
+      line-height: 1.5;
+      letter-spacing: 0.2px;
+    }
+
+    .envs { padding: 16px 14px 0; display: flex; flex-direction: column; gap: 9px; }
+
+    .env {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      padding: 15px 16px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: var(--card);
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+      width: 100%;
+      position: relative;
+      transition: border-color 0.25s, background 0.25s, transform 0.1s;
+    }
+    .env:active { transform: scale(0.99); }
+    .env.now { border-color: var(--accent); background: var(--card-active); box-shadow: 0 0 20px var(--accent-soft); }
+    .env.blocked { opacity: 0.55; }
+    .env .txt { flex: 1; min-width: 0; }
+    .env .nm {
+      display: block;
+      font-size: 14.5px;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .env.now .nm { color: var(--accent); }
+    .env .ds {
+      display: block;
+      font-size: 11.5px;
+      color: var(--text-dim);
+      margin-top: 3px;
+      line-height: 1.35;
+    }
+    .env .play {
+      width: 30px; height: 30px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      border: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-dim);
+    }
+    .env.now .play { border-color: var(--accent); color: var(--accent); }
+    .env .play svg { width: 12px; height: 12px; }
+    .env .lk { width: 12px; height: 12px; flex-shrink: 0; color: var(--text-dim); opacity: 0.55; }
+
+    /* ── Рекомендуемая атмосфера ── */
+    .rec {
+      margin: 16px 14px 0;
+      padding: 20px 18px 18px;
+      border: 1px solid var(--accent-soft);
+      border-radius: 18px;
+      background: linear-gradient(180deg, var(--card-active), var(--card));
+    }
+    .rec .tag {
+      font-size: 10px;
+      letter-spacing: 2.2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .rec .nm { font-size: 20px; font-weight: 500; color: var(--text); }
+    .rec .ds { font-size: 12px; color: var(--text-dim); margin-top: 4px; line-height: 1.4; }
+    .rec .start {
+      width: 100%;
+      margin-top: 16px;
+      padding: 14px 0;
+      border: none;
+      border-radius: 13px;
+      background: var(--accent);
+      color: #000;
+      font-size: 14.5px; font-weight: 600; font-family: inherit;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .rec .start:active { transform: scale(0.98); }
+    .rec .chips { display: flex; gap: 7px; margin-top: 9px; }
+    .rec .chip {
+      flex: 1;
+      padding: 9px 0;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 11.5px; font-family: inherit; font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, transform 0.1s;
+    }
+    .rec .chip:active { transform: scale(0.95); border-color: var(--accent); color: var(--accent); }
+
+    /* ── Быстрая настройка атмосферы ── */
+    .atmo { padding: 10px 14px 0; display: flex; flex-direction: column; gap: 12px; }
+    .atmo-presets { display: flex; gap: 7px; }
+    .atmo-presets button {
+      flex: 1;
+      padding: 11px 0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 12px; font-weight: 500; font-family: inherit;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .atmo-presets button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+    .atmo-slider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 14px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--card);
+    }
+    .atmo-slider span {
+      font-size: 11px;
+      color: var(--text-dim);
+      flex-shrink: 0;
+      min-width: 64px;
+    }
+    .atmo-slider span:last-child { text-align: right; }
+    .atmo-slider input { flex: 1; }
+
+    .detail-toggle {
+      display: block;
+      margin: 16px auto 0;
+      padding: 9px 20px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 12px; font-family: inherit;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .detail-toggle.open { color: var(--accent); border-color: var(--accent-soft); }
+
+    /* ─────────────────────────── Настройка ─────────────────────────── */
+    .layers { padding: 12px 14px 0; display: flex; flex-direction: column; gap: 7px; }
+
+    .layer {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--card);
+    }
+    .layer .ic { width: 20px; height: 20px; flex-shrink: 0; color: var(--accent); }
+    .layer .ic svg { width: 100%; height: 100%; }
+    .layer .body { flex: 1; min-width: 0; }
+    .layer .nm { font-size: 12.5px; color: var(--text); display: block; margin-bottom: 7px; }
+    .layer .off {
+      width: 26px; height: 26px;
+      flex-shrink: 0;
+      border: none;
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 17px;
+      line-height: 1;
+      cursor: pointer;
+      border-radius: 50%;
+    }
+    .layer .off:active { background: rgba(255,255,255,0.06); }
+
+    input[type=range] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 3px;
+      border-radius: 2px; outline: none; cursor: pointer;
+      background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--val, 0%), var(--line) var(--val, 0%), var(--line) 100%);
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--accent); cursor: pointer;
+      box-shadow: 0 0 6px var(--accent-soft);
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--accent); border: none; cursor: pointer;
+    }
+
+    .tabs { display: flex; gap: 4px; padding: 4px 14px 0; overflow-x: auto; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      flex-shrink: 0;
+      padding: 9px 15px 11px;
+      border: none; background: transparent;
+      color: var(--text-dim);
+      font-size: 13px; font-weight: 500; font-family: inherit;
+      letter-spacing: 0.3px; cursor: pointer; position: relative;
+      transition: color 0.25s;
+    }
+    .tab.active { color: var(--accent); }
+    .tab::after {
+      content: '';
+      position: absolute; left: 15px; right: 15px; bottom: 4px;
+      height: 1.5px; background: var(--accent); border-radius: 1px;
+      opacity: 0; transform: scaleX(0.4);
+      transition: opacity 0.25s, transform 0.25s;
+    }
+    .tab.active::after { opacity: 1; transform: scaleX(1); }
+    .tabs-line { height: 1px; background: var(--line); margin: 0 14px; }
+
+    .pane { display: none; }
+    .pane.active { display: block; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      padding: 12px 14px 0;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      padding: 14px 6px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: border-color 0.3s, background 0.3s, box-shadow 0.3s, opacity 0.3s;
+      user-select: none;
+      position: relative;
+    }
+    .card.active { background: var(--card-active); border-color: var(--accent); box-shadow: 0 0 20px var(--accent-soft); }
+    .card.blocked { opacity: 0.45; }
+    .card-icon {
+      width: 24px; height: 24px;
+      color: var(--text-dim);
+      transition: color 0.3s, transform 0.3s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .card-icon svg { width: 100%; height: 100%; }
+    .card.active .card-icon { color: var(--accent); transform: scale(1.06); }
+    .card.loading .card-icon { opacity: 0.15; }
+    .card .spinner {
+      display: none;
+      position: absolute; top: 14px;
+      width: 20px; height: 20px;
+      border: 2px solid var(--line);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    .card.loading .spinner { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .card .badge {
+      position: absolute; top: 7px; right: 8px;
+      width: 11px; height: 11px;
+      color: var(--text-dim); opacity: 0.5;
+    }
+    .card.active .badge { color: var(--accent); opacity: 1; }
+    .card-name {
+      font-size: 10.5px;
+      color: var(--text-dim);
+      text-align: center;
+      font-weight: 500;
+      letter-spacing: 0.2px;
+      transition: color 0.3s;
+      line-height: 1.25;
+      min-height: 26px;
+      display: flex; align-items: center;
+    }
+    .card.active .card-name { color: var(--text); }
+
+    .row-actions { display: flex; gap: 8px; padding: 18px 14px 0; }
+
+    /* ─────────────────────────── Свои миксы ─────────────────────────── */
+    .mixes { display: flex; gap: 8px; padding: 0 14px; overflow-x: auto; scrollbar-width: none; }
+    .mixes::-webkit-scrollbar { display: none; }
+    .mix-btn {
+      flex-shrink: 0;
+      padding: 8px 30px 8px 14px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 12px; font-weight: 500; font-family: inherit;
+      cursor: pointer; position: relative;
+      transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.1s;
+    }
+    .mix-btn:active { transform: scale(0.95); }
+    .mix-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+    .mix-btn .del {
+      position: absolute; right: 7px; top: 50%;
+      transform: translateY(-50%);
+      width: 16px; height: 16px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; line-height: 1;
+      color: var(--text-dim);
+      background: rgba(255,255,255,0.05);
+    }
+    .mix-btn .del:active { background: #7a2c2c; color: #fff; }
+
+    /* ─────────────────────────── Мини-плеер ─────────────────────────── */
+    #mini {
+      display: none;
+      position: fixed;
+      left: 12px; right: 12px;
+      bottom: calc(var(--bottom) + 8px);
+      padding: 11px 14px;
+      border: 1px solid var(--accent);
+      border-radius: 16px;
+      background: rgba(12, 11, 9, 0.94);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      align-items: center;
+      gap: 12px;
+      z-index: 150;
+      cursor: pointer;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    }
+    #mini.on { display: flex; }
+    #mini .txt { flex: 1; min-width: 0; }
+    #mini .nm {
+      display: block;
+      font-size: 13px; font-weight: 500; color: var(--accent);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #mini .ds {
+      display: block;
+      font-size: 11px; color: var(--text-dim); margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #mini .pp {
+      width: 34px; height: 34px; flex-shrink: 0;
+      border-radius: 50%;
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+    }
+    #mini .pp svg { width: 13px; height: 13px; }
+    .mini-dot {
+      width: 9px; height: 9px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent-soft);
+      animation: miniBreathe 4.5s ease-in-out infinite;
+    }
+    @keyframes miniBreathe {
+      0%, 100% { transform: scale(0.7); opacity: 0.5; }
+      50%      { transform: scale(1.15); opacity: 1; }
+    }
+    #mini.paused .mini-dot { animation: none; opacity: 0.25; }
+
+    /* ─────────────────────────── Меню таймера ─────────────────────────── */
+    .timer-wrap { position: relative; flex: 1; display: flex; }
+    .timer-wrap .btn { width: 100%; }
+    .timer-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 250;
+      background: #0c0b09;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      overflow: hidden;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.6);
+      z-index: 100;
+      min-width: 150px;
+    }
+    .timer-menu.open { display: block; }
+    .timer-option {
+      padding: 12px 20px;
+      font-size: 14px; cursor: pointer;
+      color: var(--text); text-align: center;
+      transition: background 0.2s, color 0.2s;
+    }
+    .timer-option:active { background: var(--accent); color: #000; }
+    .timer-option.cancel-opt { color: var(--text-dim); border-top: 1px solid var(--line); }
+
+    /* ─────────────────────────── Модалка, оплата, подсказка, тост ─────────────────────────── */
+    #modal {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 300;
+      align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    #modal.open { display: flex; }
+    .modal-box {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 22px 20px 18px;
+      width: 100%; max-width: 320px;
+    }
+    .modal-title { font-size: 14px; color: var(--text); margin-bottom: 4px; font-weight: 500; }
+    .modal-hint { font-size: 11.5px; color: var(--text-dim); margin-bottom: 14px; line-height: 1.4; }
+    #preset-name {
+      width: 100%;
+      padding: 11px 13px;
+      background: #000;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      color: var(--text);
+      font-size: 14px; font-family: inherit;
+      outline: none; margin-bottom: 14px;
+    }
+    #preset-name:focus { border-color: var(--accent); }
+    .modal-actions { display: flex; gap: 8px; }
+
+    #hint {
+      display: none;
+      margin: 16px 14px 0;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--card);
+      font-size: 11.5px; line-height: 1.45; color: var(--text-dim);
+    }
+    #hint.show { display: block; }
+    #hint b { color: var(--text); font-weight: 500; }
+    #hint .row { display: flex; gap: 8px; margin-top: 10px; }
+    #hint button {
+      flex: 1; padding: 9px 0;
+      border-radius: 10px; border: 1px solid var(--line);
+      background: transparent; color: var(--text-dim);
+      font-size: 11.5px; font-family: inherit; cursor: pointer;
+    }
+    #hint button.main { background: var(--accent); color: #000; border-color: var(--accent); }
+
+    #pay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.88);
+      z-index: 350;
+      align-items: flex-end; justify-content: center;
+    }
+    #pay.open { display: flex; }
+    .pay-box {
+      width: 100%; max-width: 460px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-bottom: none;
+      border-radius: 22px 22px 0 0;
+      padding: 26px 22px calc(var(--bottom) + 20px);
+      animation: rise 0.3s ease;
+    }
+    @keyframes rise { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .pay-title { font-size: 19px; color: var(--text); font-weight: 500; margin-bottom: 6px; }
+    .pay-sub { font-size: 12.5px; color: var(--text-dim); line-height: 1.5; margin-bottom: 20px; }
+    .pay-list { display: flex; flex-direction: column; gap: 11px; margin-bottom: 22px; }
+    .pay-row { display: flex; gap: 11px; align-items: flex-start; }
+    .pay-row .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); margin-top: 7px; flex-shrink: 0; }
+    .pay-row .rt { font-size: 13px; color: var(--text); line-height: 1.4; }
+    .pay-row .rt small { display: block; font-size: 11.5px; color: var(--text-dim); margin-top: 1px; }
+    .pay-cta {
+      width: 100%; padding: 15px 0;
+      border: none; border-radius: 14px;
+      background: var(--accent); color: #000;
+      font-size: 15px; font-weight: 600; font-family: inherit;
+      cursor: pointer; transition: transform 0.1s;
+    }
+    .pay-cta:active { transform: scale(0.98); }
+    .pay-note { text-align: center; font-size: 11px; color: var(--text-dim); margin-top: 11px; line-height: 1.4; }
+    .pay-close {
+      display: block; width: 100%; margin-top: 14px; padding: 10px 0;
+      background: none; border: none; color: var(--text-dim);
+      font-size: 12.5px; font-family: inherit; cursor: pointer;
+    }
+
+    #toast {
+      position: fixed;
+      bottom: calc(var(--bottom) + 86px);
+      left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: var(--accent);
+      color: #000;
+      padding: 10px 22px;
+      border-radius: 22px;
+      font-size: 13px; font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 400;
+      max-width: 90vw; overflow: hidden; text-overflow: ellipsis;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .pad-mini { height: 76px; }
+  </style>
+</head>
+<body>
+
+  <!-- ══════════════ Экран 1. Сейчас ══════════════ -->
+  <section class="view on" id="v-now">
+    <div class="topbar">
+      <div class="brand" id="brand">ТИШИНА</div>
+      <button class="icon-btn" id="lang"></button>
+    </div>
+
+    <div id="now-card">
+      <div class="breath-wrap"><div class="breath"></div></div>
+      <button class="now-stop" id="now-stop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="now-inner">
+        <div class="now-eyebrow" id="now-eyebrow"></div>
+        <div class="now-state" id="now-state"></div>
+        <div class="now-env" id="now-env"></div>
+        <div class="now-layers" id="now-layers"></div>
+        <div class="now-clock" id="now-clock"></div>
+        <div class="now-actions">
+          <button class="btn lead" id="btn-pp"></button>
+          <div class="timer-wrap">
+            <button class="btn" id="btn-timer"></button>
+            <div class="timer-menu" id="timer-menu">
+              <div class="timer-option" data-min="15"></div>
+              <div class="timer-option" data-min="30"></div>
+              <div class="timer-option" data-min="45"></div>
+              <div class="timer-option" data-min="60"></div>
+              <div class="timer-option cancel-opt" data-min="0"></div>
+            </div>
+          </div>
+          <button class="btn" id="btn-tune"></button>
+        </div>
+      </div>
+    </div>
+
+    <div id="now-empty">
+      <div class="ask" id="ask"></div>
+      <div class="sub" id="ask-sub"></div>
+    </div>
+
+    <div class="section-head" id="head-states"></div>
+    <div class="states" id="states"></div>
+
+    <div class="section-head" id="head-mixes" style="display:none"></div>
+    <div class="mixes" id="mixes"></div>
+
+    <div id="hint">
+      <span id="hint-text"></span>
+      <div class="row">
+        <button id="hint-open" class="main"></button>
+        <button id="hint-close"></button>
+      </div>
+    </div>
+
+    <div class="pad-mini"></div>
+  </section>
+
+  <!-- ══════════════ Экран 2. Состояние → среды ══════════════ -->
+  <section class="view" id="v-state">
+    <div class="topbar">
+      <button class="icon-btn back" data-back="now">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="brand" id="brand2">ТИШИНА</div>
+      <div style="width:32px"></div>
+    </div>
+
+    <div class="state-head">
+      <div class="h1" id="st-title"></div>
+      <div class="mood" id="st-mood"></div>
+    </div>
+
+    <div id="rec-box"></div>
+    <div class="section-head" id="head-others"></div>
+    <div class="envs" id="envs"></div>
+    <div class="pad-mini"></div>
+  </section>
+
+  <!-- ══════════════ Экран 3. Настройка ══════════════ -->
+  <section class="view" id="v-tune">
+    <div class="topbar">
+      <button class="icon-btn back" data-back="now">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="brand" id="brand3">ТИШИНА</div>
+      <div style="width:32px"></div>
+    </div>
+
+    <div class="state-head">
+      <div class="eyebrow" id="tune-eyebrow"></div>
+      <div class="h1" id="tune-title"></div>
+      <div class="mood" id="tune-sub"></div>
+    </div>
+
+    <div class="tune-main">
+      <button class="pp-lead" id="tune-pp"></button>
+    </div>
+
+    <div class="section-head" id="head-atmo"></div>
+    <div class="atmo">
+      <div class="atmo-presets">
+        <button data-lv="0.8" id="lv-soft"></button>
+        <button data-lv="1" class="on" id="lv-mid"></button>
+        <button data-lv="1.25" id="lv-rich"></button>
+      </div>
+      <div class="atmo-slider">
+        <span id="warm-l"></span>
+        <input type="range" id="sl-warm" min="-100" max="100" value="0" style="--val:50%">
+        <span id="warm-r"></span>
+      </div>
+      <div class="atmo-slider">
+        <span id="alive-l"></span>
+        <input type="range" id="sl-alive" min="-100" max="100" value="0" style="--val:50%">
+        <span id="alive-r"></span>
+      </div>
+    </div>
+
+    <button class="detail-toggle" id="toggle-detail"></button>
+
+    <div id="detail-wrap" style="display:none">
+      <div class="section-head" id="head-layers"></div>
+      <div class="layers" id="layers"></div>
+
+      <div class="section-head" id="head-add"></div>
+      <div class="tabs" id="tabs"></div>
+      <div class="tabs-line"></div>
+      <div id="panes"></div>
+
+      <div class="row-actions">
+        <button class="btn" id="btn-animate"></button>
+        <button class="btn" id="btn-save"></button>
+        <button class="btn" id="btn-share"></button>
+      </div>
+    </div>
+
+    <div class="pad-mini"></div>
+  </section>
+
+  <!-- ══════════════ Мини-плеер ══════════════ -->
+  <div id="mini">
+    <span class="mini-dot" id="mini-dot"></span>
+    <span class="txt"><span class="nm" id="mini-nm"></span><span class="ds" id="mini-ds"></span></span>
+    <button class="pp" id="mini-pp"></button>
+  </div>
+
+  <div id="modal">
+    <div class="modal-box">
+      <div class="modal-title" id="modal-title"></div>
+      <div class="modal-hint" id="modal-hint"></div>
+      <input type="text" id="preset-name" maxlength="18" autocomplete="off">
+      <div class="modal-actions">
+        <button class="btn" id="modal-cancel"></button>
+        <button class="btn active" id="modal-ok"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="pay">
+    <div class="pay-box">
+      <div class="pay-title" id="pay-title"></div>
+      <div class="pay-sub" id="pay-sub"></div>
+      <div class="pay-list" id="pay-list"></div>
+      <button class="pay-cta" id="pay-cta"></button>
+      <div class="pay-note" id="pay-note"></div>
+      <button class="pay-close" id="pay-close"></button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    const TG = window.Telegram?.WebApp;
+    if (TG) {
+      TG.expand();
+      try { TG.setBackgroundColor('#000000'); TG.setHeaderColor('#000000'); } catch (e) {}
+      try { TG.disableVerticalSwipes(); } catch (e) {}
+    }
+
+    const QS = new URLSearchParams(location.search);
+    const UID = TG?.initDataUnsafe?.user?.id || 0;
+    const PRO_KEY = 'tishina_pro';
+
+    const IS_PRO = (() => {
+      const f = QS.get('pro');
+      if (f === '1') { try { localStorage.setItem(PRO_KEY, String(UID)); } catch (e) {} return true; }
+      if (f === '0') { try { localStorage.removeItem(PRO_KEY); } catch (e) {} return false; }
+      try { const s = localStorage.getItem(PRO_KEY); if (s !== null && String(UID) === s) return true; } catch (e) {}
+      return false;
+    })();
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Язык. Названия состояний и сред лежат рядом с данными —
+    //  так их невозможно рассинхронизировать при правке.
+    // ═══════════════════════════════════════════════════════════════
+    const I18N = {
+      ru: {
+        brand: 'ТИШИНА',
+        eyebrow: 'Сейчас',
+        headStates: 'Состояния',
+        headStatesIdle: 'Куда вы хотите попасть',
+        headMixes: 'Ваши миксы',
+        headLayers: 'Состав пространства',
+        headAdd: 'Добавить звук',
+        ask: 'Куда вы хотите попасть?',
+        askSub: 'Выберите состояние — среда включится сама.\nНастроить можно потом.',
+        nature: 'Природа', city: 'Город', transport: 'Транспорт', tones: 'Тона',
+        play: 'Включить', pause: 'Пауза', resume: 'Продолжить', stop: 'Стоп',
+        timer: 'Таймер', tune: 'Настроить', animate: 'Оживить', save: 'Сохранить', share: 'Поделиться',
+        min: 'мин', cancel: 'Отмена',
+        custom: 'Свой микс', customMood: 'Собрано вами', edited: 'изменено',
+        rec: 'Рекомендуем', others: 'Другие атмосферы', otherStates: 'Другие состояния',
+        start: 'Начать', noTimer: 'Без таймера', tillMorning: 'До утра',
+        fitted: 'Подобрали совместимую громкость',
+        tuneTitle: 'Настроить атмосферу', headAtmo: 'Ощущение',
+        atmoSoft: 'Мягкая', atmoMid: 'Сбалансированная', atmoRich: 'Насыщенная',
+        warmL: 'Теплее', warmR: 'Просторнее', aliveL: 'Спокойнее', aliveR: 'Живее',
+        detailOpen: 'Глубокая настройка', detailClose: 'Свернуть',
+        tuneSub: 'Уберите лишнее или добавьте своё. Изменения слышны сразу.',
+        saveTitle: 'Сохранить микс', namePh: 'Например: Вечер',
+        copied: '✓ Ссылка скопирована', linkReady: '✓ Ссылка готова',
+        saved: '✓ Сохранено', deleted: 'Микс удалён',
+        needSounds: 'Сначала включите звуки', maxPresets: 'Максимум 8 миксов',
+        loadFail: 'Не удалось загрузить звук',
+        timerDone: 'Таймер завершён',
+        resumeHint: 'Ваше состояние сохранено — нажмите «Продолжить»',
+        payTitle: 'Глубокая ТИШИНА',
+        paySub: 'Готовая среда под то, что нужно прямо сейчас — работать, читать, уснуть, замедлиться.',
+        payRows: [
+          ['8 состояний и 28 сред', 'От глубокой работы до вечера у огня'],
+          ['Утро и вечер по расписанию', 'Бот напомнит начать и закончить день'],
+          ['32 звука и свои миксы', 'Собрать своё и сохранить'],
+          ['Таймер сна', 'Плавно затихает и выключается'],
+        ],
+        payCta: 'Открыть за 90 ★',
+        payNote: 'Разовый платёж на 30 дней. Без автосписания — напомним, когда закончится.',
+        payClose: 'Позже',
+        payNoLink: 'Оплата открывается из бота — напишите ему /start',
+        hintText: 'Внутри Telegram на iPhone звук выключается, когда гаснет экран — так устроена система. <b>Откройте в браузере</b>, и он продолжит играть с заблокированным экраном.',
+        hintOpen: 'Открыть в браузере', hintClose: 'Не сейчас',
+        names: {
+          rain:'Дождь', thunder:'Гром', waves:'Волны', wind:'Ветер', fire:'Огонь', birds:'Птицы',
+          cafe:'Кафе', office:'Офис', street:'Улица', shop:'Магазин',
+          park:'Парк', crowd:'Голоса', window:'Дождь в окно', hearth:'Камин',
+          highway:'Трасса', airport:'Аэропорт',
+          plane:'Самолёт', car:'Машина', train:'Поезд', metro:'Метро', bus:'Автобус', boat:'Лодка',
+          handpan:'Хендпан', didgeridoo:'Диджериду', ambient:'Эмбиент', bowl:'Чаша', drone432:'Тёплый дрон',
+          softnoise:'Мягкий шум', deepnoise:'Низкий гул',
+          alpha:'Ритм фокуса', theta:'Ритм покоя', delta:'Ритм сна'
+        }
+      },
+      en: {
+        brand: 'TISHINA',
+        eyebrow: 'Now',
+        headStates: 'States',
+        headStatesIdle: 'Where do you want to be',
+        headMixes: 'Your mixes',
+        headLayers: 'Inside the space',
+        headAdd: 'Add a sound',
+        ask: 'Where do you want to be?',
+        askSub: 'Pick a state — the sound starts itself.\nYou can tune it later.',
+        nature: 'Nature', city: 'City', transport: 'Transport', tones: 'Tones',
+        play: 'Play', pause: 'Pause', resume: 'Resume', stop: 'Stop',
+        timer: 'Timer', tune: 'Tune', animate: 'Animate', save: 'Save', share: 'Share',
+        min: 'min', cancel: 'Cancel',
+        custom: 'Your mix', customMood: 'Built by you', edited: 'edited',
+        rec: 'Recommended', others: 'More atmospheres', otherStates: 'Other states',
+        start: 'Start', noTimer: 'No timer', tillMorning: 'Till morning',
+        fitted: 'Balanced it into the atmosphere',
+        tuneTitle: 'Tune the atmosphere', headAtmo: 'Feel',
+        atmoSoft: 'Soft', atmoMid: 'Balanced', atmoRich: 'Rich',
+        warmL: 'Warmer', warmR: 'Airier', aliveL: 'Calmer', aliveR: 'Livelier',
+        detailOpen: 'Deep control', detailClose: 'Collapse',
+        tuneSub: 'Remove what you do not need, add what you do. You hear it instantly.',
+        saveTitle: 'Save mix', namePh: 'For example: Evening',
+        copied: '✓ Link copied', linkReady: '✓ Link ready',
+        saved: '✓ Saved', deleted: 'Mix deleted',
+        needSounds: 'Turn on some sounds first', maxPresets: 'Maximum 8 mixes',
+        loadFail: 'Could not load sound',
+        timerDone: 'Timer finished',
+        resumeHint: 'Your state is saved — tap Resume',
+        payTitle: 'Deep TISHINA',
+        paySub: 'A ready environment for what you need right now — to work, to read, to sleep, to slow down.',
+        payRows: [
+          ['8 states, 28 environments', 'From deep work to an evening by the fire'],
+          ['Morning and evening ritual', 'The bot reminds you to start and to stop'],
+          ['32 sounds, your own mixes', 'Build yours and save it'],
+          ['Sleep timer', 'Fades out gently and stops'],
+        ],
+        payCta: 'Unlock for 90 ★',
+        payNote: 'One-time payment for 30 days. No auto-renewal — we will remind you when it ends.',
+        payClose: 'Later',
+        payNoLink: 'Payment opens from the bot — send it /start',
+        hintText: 'Inside Telegram on iPhone the sound stops when the screen turns off — that is how the system works. <b>Open in a browser</b> and it will keep playing with the screen locked.',
+        hintOpen: 'Open in browser', hintClose: 'Not now',
+        names: {
+          rain:'Rain', thunder:'Thunder', waves:'Waves', wind:'Wind', fire:'Fire', birds:'Birds',
+          cafe:'Cafe', office:'Office', street:'Street', shop:'Shop',
+          park:'Park', crowd:'Voices', window:'Rain on window', hearth:'Fireplace',
+          highway:'Highway', airport:'Airport',
+          plane:'Plane', car:'Car', train:'Train', metro:'Metro', bus:'Bus', boat:'Boat',
+          handpan:'Handpan', didgeridoo:'Didgeridoo', ambient:'Ambient', bowl:'Singing bowl', drone432:'Warm drone',
+          softnoise:'Soft noise', deepnoise:'Deep hum',
+          alpha:'Focus rhythm', theta:'Calm rhythm', delta:'Sleep rhythm'
+        }
+      }
+    };
+
+    const LANG_KEY = 'tishina_lang';
+    function detectLang() {
+      const u = QS.get('lang');
+      if (u && I18N[u]) return u;
+      try { const s = localStorage.getItem(LANG_KEY); if (s && I18N[s]) return s; } catch (e) {}
+      const c = TG?.initDataUnsafe?.user?.language_code || navigator.language || 'en';
+      return c.startsWith('ru') ? 'ru' : 'en';
+    }
+    let lang = detectLang();
+    const t = k => I18N[lang][k];
+    const nm = id => I18N[lang].names[id];
+
+    // ───────────────────────────────────────── Иконки
+    const IC = {
+      rain:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12.5a3.8 3.8 0 0 1 .7-7.5A5 5 0 0 1 17 5.2a3.4 3.4 0 0 1 1 6.6"/><path d="M8 16l-1 2.5M12 16l-1 2.5M16 16l-1 2.5"/></svg>',
+      thunder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12a3.8 3.8 0 0 1 .7-7.5A5 5 0 0 1 17 4.7a3.4 3.4 0 0 1 1 6.6"/><path d="M12 13l-2.2 3.2h2.8L10.4 20"/></svg>',
+      waves:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10c1.8 0 1.8-2 3.7-2s1.9 2 3.7 2 1.8-2 3.7-2 1.9 2 3.7 2"/><path d="M3 15c1.8 0 1.8-2 3.7-2s1.9 2 3.7 2 1.8-2 3.7-2 1.9 2 3.7 2"/></svg>',
+      wind:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h9a2.4 2.4 0 1 0-2.4-2.4"/><path d="M4 12h13a2.4 2.4 0 1 1-2.4 2.4"/><path d="M4 16h7"/></svg>',
+      fire:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3.2 3.2 4.8 5.8 4.8 8.7A4.8 4.8 0 0 1 7.2 12c0-1.7.8-3 1.9-4 .1 1.3.8 2.2 1.7 2.6.3-2.4-.8-4.9 1.2-7.6z"/></svg>',
+      birds:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10c1.6-2.2 3.2-2.2 4.8 0"/><path d="M13 8c1.8-2.4 3.4-2.4 5.2 0"/></svg>',
+
+      cafe:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h13v5a4.5 4.5 0 0 1-4.5 4.5h-4A4.5 4.5 0 0 1 4 14z"/><path d="M17 10.5h1.6a2.2 2.2 0 0 1 0 4.4H17"/><path d="M7 5.5c.6-.8.6-1.4 0-2.2M11 5.5c.6-.8.6-1.4 0-2.2" opacity="0.6"/><path d="M3 21h15"/></svg>',
+      shop:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18l-1.4 12.2a1.8 1.8 0 0 1-1.8 1.6H6.2a1.8 1.8 0 0 1-1.8-1.6z"/><path d="M8.5 10V6a3.5 3.5 0 0 1 7 0v4"/></svg>',
+      park:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 7.5 11h9z"/><path d="M12 8 8 15h8z"/><path d="M12 15v5.5"/><path d="M4 20.5h16" opacity="0.5"/></svg>',
+      crowd:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.6"/><circle cx="16" cy="9" r="2.2" opacity="0.7"/><path d="M3 19c0-2.8 2.2-5 5-5s5 2.2 5 5"/><path d="M14 19c0-2.4 1.8-4.2 4-4.2s3 1.4 3 3.4" opacity="0.7"/></svg>',
+      highway:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21 10 3M17 21 14 3"/><path d="M12 6.5v3M12 12v3M12 17.5v3" opacity="0.7"/></svg>',
+      airport:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18h20"/><path d="M5.5 14.5 4 10l2 .5 1.4 2.2 4.6.7-2.6-6 2.2.5 4 5.9 3.4.5a1.6 1.6 0 0 1 0 3.2z"/></svg>',
+      office:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="12" rx="1.6"/><path d="M2 20h20M9.5 9h5M8 12.5h8"/></svg>',
+      street:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3 6 21M15 3l3 18"/><path d="M12 5v2.5M12 11v2.5M12 17v2.5"/></svg>',
+      window:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="15" rx="1.5"/><path d="M12 3v15M4 10.5h16"/><path d="M8 21l.8-1.6M15.2 21l.8-1.6" opacity="0.6"/></svg>',
+      hearth:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v13"/><path d="M12 16.5c1.9 0 3-1.2 3-2.8 0-1.7-1.4-2.6-1.9-3.9-.9 1-.4 2-1.1 2.6-.5-.5-.4-1.2-.4-1.8-1 .8-1.6 1.9-1.6 3.1 0 1.6 1.1 2.8 2 2.8z"/></svg>',
+
+      plane:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.5c0 .8-.7 1.5-1.5 1.5h-4.7L11 21H8.6l2-7H6.3l-1.8 2.4H2.8L4.4 12 2.8 7.6h1.7L6.3 10h4.3l-2-7H11l3.8 7h4.7c.8 0 1.5.7 1.5 1.5z"/></svg>',
+      car:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16v-3.2L5.8 8A2 2 0 0 1 7.7 6.6h8.6A2 2 0 0 1 18.2 8L20 12.8V16"/><path d="M3 16h18"/><circle cx="7.5" cy="17.5" r="1.6"/><circle cx="16.5" cy="17.5" r="1.6"/></svg>',
+      train:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3.5" width="14" height="13" rx="2.5"/><path d="M5 10h14M9 20l-2 2M15 20l2 2"/><circle cx="9" cy="13.3" r="0.9"/><circle cx="15" cy="13.3" r="0.9"/></svg>',
+      metro:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18a9 9 0 0 1 18 0"/><rect x="7.5" y="8" width="9" height="8" rx="2"/><path d="M7.5 12.5h9"/><path d="M5 21h14"/></svg>',
+      bus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="13" rx="2"/><path d="M4 10.5h16M8 20l-1 1.5M16 20l1 1.5"/><circle cx="8" cy="14" r="0.9"/><circle cx="16" cy="14" r="0.9"/></svg>',
+      boat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15h16l-2.5 4.5H6.5z"/><path d="M12 15V5l6 6.5h-6"/><path d="M2 21c1.5 0 1.5-1.2 3-1.2s1.5 1.2 3 1.2 1.5-1.2 3-1.2 1.5 1.2 3 1.2 1.5-1.2 3-1.2 1.5 1.2 3 1.2" opacity="0.6"/></svg>',
+
+      handpan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="1.4"/><path d="M12 5.5v1.6M12 16.9v1.6M5.5 12h1.6M16.9 12h1.6"/></svg>',
+      didgeridoo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 19.5 16 8a2.1 2.1 0 0 1 3 3L7.5 22.5"/><path d="M13.5 10.5l3 3M15.5 8.5l3 3"/></svg>',
+      ambient:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.3"/><circle cx="12" cy="12" r="6.6" opacity="0.5"/></svg>',
+      bowl:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10c0 5 3.6 8 8 8s8-3 8-8"/><path d="M2.5 10h19"/><path d="M9 5.5c1-1.5 5-1.5 6 0" opacity="0.5"/></svg>',
+      drone432:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v2.4M12 18.1v2.4M3.5 12h2.4M18.1 12h2.4" opacity="0.6"/><circle cx="12" cy="12" r="8" opacity="0.3"/></svg>',
+      softnoise:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 12h2M7 9v6M11 6.5v11M15 9v6M19 11v2"/></svg>',
+      deepnoise:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 12h2M7 10.5v3M11 8v8M15 5v14M19 9.5v5"/></svg>',
+      alpha:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c1.5-4 3-4 4.5 0s3 4 4.5 0 3-4 4.5 0 3 4 4.5 0"/></svg>',
+      theta:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c2.5-5 5-5 7.5 0s5 5 7.5 0"/><path d="M18 12c1 2 2 2 3 0" opacity="0.5"/></svg>',
+      delta:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c4-7 8-7 12 0s6 5 8 0"/></svg>'
+    };
+
+    const HP = '<svg class="badge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2.5" y="13.5" width="4" height="7" rx="1.6"/><rect x="17.5" y="13.5" width="4" height="7" rx="1.6"/></svg>';
+    const LOCK = '<svg class="badge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="11" rx="2.2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>';
+
+    // Иконки состояний — верхний уровень навигации
+    const SIC = {
+      focus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.6"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/></svg>',
+      read:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10.4 5 8.2 4.3 4.5 4.3v13c3.7 0 5.9.7 7.5 2.2 1.6-1.5 3.8-2.2 7.5-2.2v-13c-3.7 0-5.9.7-7.5 2.2z"/><path d="M12 6.5v13"/></svg>',
+      unwind:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20c0-8 5-13 14-13 0 8.5-5.5 13-14 13z"/><path d="M8 17c2.5-3.5 5-5.5 8.5-7"/></svg>',
+      meditate:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5.5" r="2.2"/><path d="M12 9.5v4.5"/><path d="M4 20c1.5-3.5 4.5-5.5 8-5.5s6.5 2 8 5.5"/><path d="M6.5 14.5 12 17l5.5-2.5" opacity="0.55"/></svg>',
+      breath:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20c4.4 0 8-3.6 8-8s-3.6-8-8-8-6 2.4-6 5 2 4 4 4 3-1.4 3-2.6"/></svg>',
+      move:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="14.5" cy="4.6" r="2"/><path d="M8 21l3-5.5-3-3 1-5 4 2.5 3 1"/><path d="M11 12.5 8.5 9"/><path d="M15.5 21 13 15.5"/><path d="M2.5 9.5h3M2.5 13.5h4" opacity="0.55"/></svg>',
+      sleep:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></svg>',
+      place:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9.5l6-3.5v4l6-3.5V21"/><path d="M15 10.5h6V21"/><path d="M2 21h20" opacity="0.5"/><path d="M6.5 12.5v2M6.5 17v2M11.5 12.5v2M11.5 17v2M18 14v2" opacity="0.6"/></svg>',
+    };
+
+    const PLAY_IC = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5 19.5 12 7 19.5z"/></svg>';
+    const PAUSE_IC = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1.2"/><rect x="14" y="4.5" width="4" height="15" rx="1.2"/></svg>';
+    const CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>';
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Библиотека звуков. Это склад, а не навигация:
+    //  человек попадает сюда только на третьем уровне.
+    //  free — девять звуков, доступных всем.
+    // ═══════════════════════════════════════════════════════════════
+    const CATS = [
+      { id: 'nature', sounds: [
+        { id:'rain', def:0.70, free:true }, { id:'thunder', def:0.50, free:true },
+        { id:'waves', def:0.60, free:true }, { id:'wind', def:0.50, free:true },
+        { id:'fire', def:0.60, free:true }, { id:'birds', def:0.55, free:true },
+      ]},
+      { id: 'city', sounds: [
+        { id:'cafe', def:0.50 }, { id:'office', def:0.45 }, { id:'street', def:0.45 },
+        { id:'shop', def:0.45 }, { id:'park', def:0.50 }, { id:'crowd', def:0.40 },
+        { id:'window', def:0.55 }, { id:'hearth', def:0.50 },
+      ]},
+      { id: 'transport', sounds: [
+        { id:'plane', def:0.45 }, { id:'train', def:0.50 }, { id:'metro', def:0.45 },
+        { id:'car', def:0.45 }, { id:'bus', def:0.45 }, { id:'boat', def:0.50 },
+        { id:'highway', def:0.45 }, { id:'airport', def:0.45 },
+      ]},
+      { id: 'tones', sounds: [
+        { id:'handpan', def:0.50, free:true }, { id:'didgeridoo', def:0.20, free:true },
+        { id:'ambient', def:0.25, free:true },
+        { id:'bowl', def:0.35 }, { id:'drone432', def:0.30 },
+        { id:'softnoise', def:0.45 }, { id:'deepnoise', def:0.40 },
+        { id:'alpha', def:0.35, hp:true }, { id:'theta', def:0.35, hp:true },
+        { id:'delta', def:0.35, hp:true },
+      ]},
+    ];
+
+    const SOUNDS = CATS.flatMap(c => c.sounds.map(s => ({ ...s, cat: c.id, file: s.id + '.mp3' })));
+    const byId = id => SOUNDS.find(x => x.id === id);
+    const allowed = s => !!s.free || IS_PRO;
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Аудиопрофили — внутренний движок совместимости.
+    //  band — где звук живёт в спектре (частотное маскирование:
+    //  два звука в одной полосе борются, в разных — складываются).
+    //  warm  — тёплый (камин) ↔ просторный (ветер), для ползунка.
+    //  alive — живой (гроза) ↔ ровный (гул), для ползунка.
+    //  Пользователь этих цифр никогда не видит.
+    // ═══════════════════════════════════════════════════════════════
+    const PROF = {
+      rain:      { band:'high', warm: 0.0, alive:-0.2 },
+      thunder:   { band:'low',  warm:-0.3, alive: 0.9 },
+      waves:     { band:'mid',  warm:-0.5, alive: 0.3 },
+      wind:      { band:'high', warm:-0.8, alive: 0.0 },
+      fire:      { band:'mid',  warm: 1.0, alive:-0.1 },
+      birds:     { band:'high', warm:-0.6, alive: 0.7 },
+      cafe:      { band:'mid',  warm: 0.3, alive: 0.5 },
+      office:    { band:'mid',  warm: 0.2, alive:-0.1 },
+      street:    { band:'mid',  warm:-0.4, alive: 0.6 },
+      shop:      { band:'mid',  warm:-0.3, alive: 0.6 },
+      park:      { band:'mid',  warm:-0.5, alive: 0.4 },
+      crowd:     { band:'mid',  warm:-0.2, alive: 0.8 },
+      window:    { band:'high', warm: 0.4, alive:-0.2 },
+      hearth:    { band:'mid',  warm: 1.0, alive:-0.2 },
+      highway:   { band:'low',  warm:-0.3, alive: 0.5 },
+      airport:   { band:'mid',  warm:-0.5, alive: 0.3 },
+      plane:     { band:'low',  warm: 0.2, alive:-0.3 },
+      car:       { band:'low',  warm: 0.3, alive: 0.4 },
+      train:     { band:'low',  warm: 0.5, alive: 0.3 },
+      metro:     { band:'low',  warm: 0.3, alive: 0.5 },
+      bus:       { band:'low',  warm: 0.3, alive: 0.4 },
+      boat:      { band:'low',  warm: 0.3, alive: 0.3 },
+      handpan:   { band:'mid',  warm: 0.1, alive: 0.5 },
+      didgeridoo:{ band:'low',  warm: 0.6, alive: 0.4 },
+      ambient:   { band:'broad',warm: 0.2, alive:-0.6 },
+      bowl:      { band:'mid',  warm: 0.4, alive:-0.4 },
+      drone432:  { band:'low',  warm: 0.6, alive:-0.6 },
+      softnoise: { band:'broad',warm: 0.2, alive:-0.7 },
+      deepnoise: { band:'low',  warm: 0.8, alive:-0.8 },
+      alpha:     { band:'low',  warm:-0.2, alive:-0.5 },
+      theta:     { band:'low',  warm: 0.2, alive:-0.7 },
+      delta:     { band:'low',  warm: 0.3, alive:-0.9 },
+    };
+
+    // ═══════════════════════════════════════════════════════════════
+    //  СОСТОЯНИЯ — верхний уровень. Человек выбирает не звук,
+    //  а то, куда он хочет попасть. Внутри каждого состояния —
+    //  две-шесть готовых сред. В каждой есть хотя бы один
+    //  бесплатный слой: без подписки она звучит беднее, но звучит.
+    // ═══════════════════════════════════════════════════════════════
+    const STATES = [
+      { id:'focus', ic:'focus', dur:[25, 50, 90],
+        ru:['Сосредоточиться', 'концентрация · рабочий ритм · ничего лишнего'],
+        fx:{ ru:'Ровный фон закрывает отвлечения и держит рабочий ритм', en:'A steady background mutes distractions and holds your rhythm' },
+        en:['Focus', 'concentration · working rhythm · nothing extra'],
+        envs: [
+          { id:'deep',  ru:'Глубокая работа',  en:'Deep Work',     mix:{ office:46, rain:28, softnoise:22 } },
+          { id:'cafe',  ru:'Работа в кафе',    en:'Working Cafe',  mix:{ cafe:52, street:24, rain:30 } },
+          { id:'even',  ru:'Ровный фон',       en:'Even Ground',   mix:{ softnoise:42, rain:32, deepnoise:22 } },
+          { id:'desk',  ru:'Кабинет в поезде', en:'Train Desk',    mix:{ train:46, rain:28, crowd:14 } },
+        ]},
+
+      { id:'read', ic:'read', dur:[0, 25, 50],
+        ru:['Читать', 'спокойное внимание · погружение · без отвлечений'],
+        fx:{ ru:'Мир вокруг растворяется — остаётся только текст', en:'The world dissolves — only the text remains' },
+        en:['Read', 'calm attention · immersion · no distractions'],
+        envs: [
+          { id:'window',  ru:'Дождь в окно',   en:'Rainy Window',  mix:{ window:52, hearth:28, rain:26 } },
+          { id:'hearth',  ru:'Вечер у огня',   en:'Fireside',      mix:{ hearth:46, fire:34, bowl:15 } },
+          { id:'library', ru:'Читальный зал',  en:'Reading Room',  mix:{ office:32, crowd:14, rain:24, ambient:16 } },
+        ]},
+
+      { id:'unwind', ic:'unwind', dur:[15, 30],
+        ru:['Расслабиться', 'снять напряжение · выдохнуть · восстановиться'],
+        fx:{ ru:'Тёплое пространство, в котором напряжение уходит само', en:'A warm space where tension leaves on its own' },
+        en:['Unwind', 'let go of tension · exhale · recover'],
+        envs: [
+          { id:'fire',  ru:'У огня',           en:'By the Fire',   mix:{ fire:42, bowl:36, drone432:22 } },
+          { id:'sea',   ru:'Волны и ветер',    en:'Waves and Wind',mix:{ waves:48, wind:28, handpan:20 } },
+          { id:'pan',   ru:'Хендпан',          en:'Handpan',       mix:{ handpan:46, ambient:28, waves:22 } },
+        ]},
+
+      { id:'meditate', ic:'meditate', dur:[10, 20, 30],
+        ru:['Медитация', 'замедление · внутренняя тишина · присутствие'],
+        fx:{ ru:'Медленное пространство для присутствия и тишины внутри', en:'A slow space for presence and inner quiet' },
+        en:['Meditate', 'slowing down · inner quiet · presence'],
+        envs: [
+          { id:'bowl',  ru:'Поющая чаша',      en:'Singing Bowl',  mix:{ bowl:46, drone432:28, ambient:22 } },
+          { id:'theta', ru:'Тета-ритм',        en:'Theta',         mix:{ theta:26, ambient:34, wind:20, handpan:16 } },
+          { id:'park',  ru:'Утро в парке',     en:'Morning Park',  mix:{ park:42, birds:32, wind:20 } },
+        ]},
+
+      { id:'breath', ic:'breath', dur:[15, 30],
+        ru:['Дыхание и тело', 'цигун · йога · плавный ритм · опора на дыхание'],
+        fx:{ ru:'Плавный ритм, за которым удобно дышать и двигаться', en:'A flowing rhythm that carries breath and movement' },
+        en:['Breath and Body', 'qigong · yoga · steady rhythm · breath as anchor'],
+        envs: [
+          { id:'dawn',  ru:'Рассвет в парке',  en:'Park at Dawn',  mix:{ park:44, birds:28, wind:22 } },
+          { id:'water', ru:'У воды',           en:'By the Water',  mix:{ waves:44, wind:26, boat:18, didgeridoo:16 } },
+          { id:'earth', ru:'Дыхание земли',    en:'Breath of the Earth', mix:{ didgeridoo:34, deepnoise:26, ambient:24, wind:18 } },
+        ]},
+
+      { id:'move', ic:'move', dur:[20, 40],
+        ru:['Тренировка', 'энергия · ритм · движение'],
+        fx:{ ru:'Ритм и энергия, которые толкают вперёд', en:'Rhythm and energy that push you forward' },
+        en:['Training', 'energy · rhythm · movement'],
+        envs: [
+          { id:'road',  ru:'Трасса',           en:'Highway',       mix:{ highway:46, car:26, wind:22 } },
+          { id:'pulse', ru:'Городской ритм',   en:'City Pulse',    mix:{ street:44, crowd:26, metro:20, wind:18 } },
+          { id:'storm', ru:'Ветер и гроза',    en:'Wind and Storm',mix:{ wind:46, thunder:32, rain:30 } },
+        ]},
+
+      { id:'sleep', ic:'sleep', dur:[30, 60, 480],
+        ru:['Уснуть', 'расслабление · замедление · переход ко сну'],
+        fx:{ ru:'Звук замедляется вместе с вами и гаснет сам', en:'The sound slows down with you and fades on its own' },
+        en:['Sleep', 'letting go · slowing down · drifting off'],
+        envs: [
+          { id:'ocean', ru:'Океан',            en:'Ocean',         mix:{ waves:52, rain:26, delta:14 }, timer:45 },
+          { id:'storm', ru:'Дождь и гром',     en:'Rain and Thunder', mix:{ rain:52, thunder:24, deepnoise:22 }, timer:45 },
+          { id:'night', ru:'Ночной поезд',     en:'Night Train',   mix:{ train:46, rain:30, window:22 }, timer:45 },
+        ]},
+
+      { id:'place', ic:'place',
+        ru:['Сменить обстановку', 'другое место · другая комната · другой город'],
+        fx:{ ru:'Несколько минут — и комната становится другим местом', en:'A few minutes — and the room becomes another place' },
+        en:['Change of Scenery', 'another place · another room · another city'],
+        envs: [
+          { id:'paris',   ru:'Парижское кафе', en:'Paris Cafe',     mix:{ cafe:52, street:26, rain:34 } },
+          { id:'airport', ru:'Зал ожидания',   en:'Airport Lounge', mix:{ airport:48, crowd:22, wind:20 } },
+          { id:'metro',   ru:'Метро',          en:'Metro',          mix:{ metro:46, crowd:20, deepnoise:20, rain:18 } },
+          { id:'flight',  ru:'Полёт',          en:'In Flight',      mix:{ plane:50, softnoise:24, ambient:22 } },
+          { id:'shop',    ru:'Городской день', en:'City Day',       mix:{ shop:44, crowd:26, street:20, rain:18 } },
+          { id:'sail',    ru:'На воде',        en:'On the Water',   mix:{ boat:48, waves:34, wind:24 } },
+          { id:'seahouse',ru:'Дом у моря',     en:'House by the Sea', mix:{ waves:46, wind:26, hearth:24, birds:12 } },
+          { id:'raincity',ru:'Дождливый город',en:'Rainy City',     mix:{ street:38, rain:44, window:22, thunder:14 } },
+        ]},
+    ];
+
+    const stateById = id => STATES.find(s => s.id === id);
+    const envFull = env => Object.keys(env.mix).every(id => { const s = byId(id); return s && allowed(s); });
+    // Слои среды, которые реально прозвучат у этого человека
+    const envAudible = env => Object.keys(env.mix).filter(id => { const s = byId(id); return s && allowed(s); });
+    const envDesc = env => envAudible(env).map(nm).join(' · ');
+
+    const FADE = 0.4, SCENE_FADE = 2.5, TIMER_FADE = 30;
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Аудиодвижок — без изменений, он и так работает бесшовно
+    // ═══════════════════════════════════════════════════════════════
+    const els = {}, state = {}, fades = {};
+    let masterVol = 1;
+    let paused = false;
+
+    SOUNDS.forEach(s => { state[s.id] = { active: false, volume: s.def }; });
+
+    const canAAC = (() => {
+      const a = document.createElement('audio');
+      return !!a.canPlayType('audio/mp4; codecs="mp4a.40.2"');
+    })();
+
+    function ensureEl(id) {
+      if (els[id]) return els[id];
+      const s = byId(id);
+      const el = new Audio();
+      el.src = canAAC ? id + '.m4a' : s.file;
+      el.loop = true;
+      el.preload = 'auto';
+      el.volume = 0;
+      el.setAttribute('playsinline', '');
+      el.addEventListener('playing', () => setCardLoading(id, false));
+      el.addEventListener('canplaythrough', () => setCardLoading(id, false));
+      el.addEventListener('error', () => {
+        if (!el.dataset.fb && el.src.endsWith('.m4a')) {
+          el.dataset.fb = '1'; el.src = s.file; el.load();
+          if (state[id].active) el.play().catch(() => {});
+          return;
+        }
+        setCardLoading(id, false); showToast(t('loadFail'));
+      });
+      els[id] = el;
+      return el;
+    }
+
+    function fadeTo(id, target, seconds, onDone) {
+      const el = els[id];
+      if (!el) return;
+      clearInterval(fades[id]);
+      const from = el.volume, steps = Math.max(1, Math.round(seconds * 20));
+      let i = 0;
+      fades[id] = setInterval(() => {
+        i++;
+        try { el.volume = Math.max(0, Math.min(1, from + (target - from) * (i / steps))); } catch (e) {}
+        if (i >= steps) { clearInterval(fades[id]); delete fades[id]; if (onDone) onDone(); }
+      }, seconds * 1000 / steps);
+    }
+
+    async function startSound(id, fade = FADE) {
+      const el = ensureEl(id);
+      scheduleHint();
+      setCardLoading(id, true);
+      try {
+        el.volume = 0;
+        await el.play();
+        setCardLoading(id, false);
+        fadeTo(id, state[id].volume * masterVol, fade);
+      } catch (e) { setCardLoading(id, false); }
+      updateMediaSession();
+    }
+
+    function stopSound(id, fade = FADE) {
+      const el = els[id];
+      if (!el) return;
+      fadeTo(id, 0, fade, () => { try { el.pause(); el.currentTime = 0; } catch (e) {} });
+      updateMediaSession();
+    }
+
+    function setVolume(id, v, ramp = 0.08) {
+      state[id].volume = v;
+      if (els[id] && !els[id].paused) fadeTo(id, v * masterVol, ramp);
+    }
+
+    function setMasterVolume(v, seconds) {
+      const from = masterVol, steps = Math.max(1, Math.round(seconds * 10));
+      let i = 0;
+      clearInterval(setMasterVolume._t);
+      setMasterVolume._t = setInterval(() => {
+        i++;
+        masterVol = from + (v - from) * (i / steps);
+        SOUNDS.forEach(s => {
+          const el = els[s.id];
+          if (el && !el.paused && !fades[s.id]) {
+            try { el.volume = Math.max(0, Math.min(1, state[s.id].volume * masterVol)); } catch (e) {}
+          }
+        });
+        if (i >= steps) clearInterval(setMasterVolume._t);
+      }, seconds * 1000 / steps);
+    }
+
+    // Сторож: Telegram и iOS иногда глушат элемент — поднимаем обратно.
+    // На паузе не трогаем, иначе пауза не держится.
+    setInterval(() => {
+      if (paused) return;
+      SOUNDS.forEach(s => {
+        const el = els[s.id];
+        if (state[s.id].active && el && el.paused) el.play().catch(() => {});
+      });
+    }, 3000);
+
+    const anyActive = () => SOUNDS.some(s => state[s.id].active);
+
+    function currentMix() {
+      const m = {};
+      SOUNDS.forEach(s => { if (state[s.id].active) m[s.id] = Math.round(state[s.id].volume * 100); });
+      return m;
+    }
+
+    // Быстрая настройка атмосферы. Громкости слоёв считаются от базы:
+    // base × пресет насыщенности × (тепло/простор) × (покой/жизнь).
+    // Сложность здесь, а не в голове пользователя.
+    const atmo = { level: 1, warm: 0, alive: 0 };
+    let baseVol = {};
+
+    function atmoMult(id) {
+      const p = PROF[id] || { warm: 0, alive: 0 };
+      const m = atmo.level
+        * (1 + 0.45 * atmo.warm * p.warm)
+        * (1 + 0.45 * atmo.alive * p.alive);
+      return Math.max(0.15, Math.min(1.7, m));
+    }
+
+    function applyAtmo(ramp = 0.6) {
+      SOUNDS.forEach(s => {
+        if (!state[s.id].active) return;
+        const v = Math.max(0.03, Math.min(1, (baseVol[s.id] ?? state[s.id].volume) * atmoMult(s.id)));
+        setVolume(s.id, v, ramp);
+      });
+      if (view === 'tune') renderLayers();
+    }
+
+    function resetAtmo() {
+      atmo.level = 1; atmo.warm = 0; atmo.alive = 0;
+      syncAtmoUI();
+    }
+
+    function applyMix(mix, fade = FADE) {
+      paused = false;
+      resetAtmo();
+      baseVol = {};
+      SOUNDS.forEach(s => {
+        const vol = allowed(s) ? (mix[s.id] || 0) / 100 : 0;
+        if (vol > 0) {
+          baseVol[s.id] = vol;
+          state[s.id].volume = vol;
+          if (!state[s.id].active) { state[s.id].active = true; startSound(s.id, fade); }
+          else setVolume(s.id, vol, fade);
+        } else if (state[s.id].active) {
+          state[s.id].active = false; stopSound(s.id, fade);
+        }
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Что сейчас происходит — единственное «состояние приложения»
+    // ═══════════════════════════════════════════════════════════════
+    // current: { st, env } — среда из состояния
+    //          { name }    — свой микс
+    //          null        — тишина
+    let current = null;
+    let startedAt = 0;
+    let openedState = null;
+
+    function label() {
+      if (!current) return { top: '', sub: '' };
+      if (current.name) return { top: current.name, sub: t('customMood') };
+      const st = stateById(current.st);
+      const env = st?.envs.find(e => e.id === current.env);
+      if (!st || !env) return { top: t('custom'), sub: '' };
+      return { top: st[lang][0], sub: env[lang] };
+    }
+
+    function mixMatchesEnv() {
+      if (!current || current.name) return true;
+      const st = stateById(current.st);
+      const env = st?.envs.find(e => e.id === current.env);
+      if (!env) return true;
+      const cur = currentMix();
+      const want = {};
+      envAudible(env).forEach(id => { want[id] = env.mix[id]; });
+      const a = Object.keys(cur).sort(), b = Object.keys(want).sort();
+      if (a.join() !== b.join()) return false;
+      return a.every(k => Math.abs(cur[k] - want[k]) <= 1);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Навигация между тремя экранами
+    // ═══════════════════════════════════════════════════════════════
+    const views = { now: document.getElementById('v-now'), state: document.getElementById('v-state'), tune: document.getElementById('v-tune') };
+    let view = 'now';
+
+    function showView(v) {
+      view = v;
+      Object.entries(views).forEach(([k, el]) => el.classList.toggle('on', k === v));
+      window.scrollTo(0, 0);
+      refreshMini();
+      if (TG?.BackButton) {
+        try { v === 'now' ? TG.BackButton.hide() : TG.BackButton.show(); } catch (e) {}
+      }
+    }
+    document.querySelectorAll('.back').forEach(b => b.addEventListener('click', () => showView('now')));
+    if (TG?.BackButton) { try { TG.BackButton.onClick(() => showView('now')); } catch (e) {} }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Экран 1. Список состояний
+    // ═══════════════════════════════════════════════════════════════
+    const statesBox = document.getElementById('states');
+
+    STATES.forEach(st => {
+      const b = document.createElement('button');
+      b.className = 'state';
+      b.dataset.st = st.id;
+      b.innerHTML =
+        '<span class="ic">' + SIC[st.ic] + '</span>' +
+        '<span class="txt"><span class="nm"></span><span class="ds"></span></span>' +
+        '<span class="chev">' + CHEV + '</span>';
+      b.addEventListener('click', () => openState(st));
+      statesBox.appendChild(b);
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Экран 2. Среды выбранного состояния
+    // ═══════════════════════════════════════════════════════════════
+    const envsBox = document.getElementById('envs');
+
+    const recBox = document.getElementById('rec-box');
+
+    function openState(st) {
+      openedState = st.id;
+      document.getElementById('st-title').textContent = st[lang][0];
+      document.getElementById('st-mood').textContent = st[lang][1];
+
+      // Первая среда — рекомендация: мы уже знаем, что нужно.
+      // Просто нажми «Начать» (или сразу с таймером).
+      const rec = st.envs[0];
+      const recFull = envFull(rec);
+      recBox.innerHTML = '';
+      const card = document.createElement('div');
+      card.className = 'rec';
+      let chips = '';
+      if (st.dur) {
+        chips = '<div class="chips">' + st.dur.map(d =>
+          '<button class="chip" data-d="' + d + '">' +
+          (d === 0 ? t('noTimer') : d === 480 ? t('tillMorning') : d + ' ' + t('min')) +
+          '</button>').join('') + '</div>';
+      }
+      card.innerHTML =
+        '<div class="tag">' + t('rec') + '</div>' +
+        '<div class="nm"></div><div class="ds"></div>' +
+        '<button class="start">' + t('start') + '</button>' + chips;
+      card.querySelector('.nm').textContent = rec[lang];
+      card.querySelector('.ds').textContent = envDesc(rec);
+      card.querySelector('.start').addEventListener('click', () => playEnv(st, rec, recFull));
+      card.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
+        const d = parseInt(c.dataset.d, 10);
+        playEnv(st, rec, recFull);
+        if (d > 0) setTimer(d); else cancelTimer();
+        refreshNow();
+      }));
+      recBox.appendChild(card);
+
+      // Остальные атмосферы
+      const rest = st.envs.slice(1);
+      document.getElementById('head-others').textContent = t('others');
+      document.getElementById('head-others').style.display = rest.length ? '' : 'none';
+      envsBox.innerHTML = '';
+      rest.forEach(env => {
+        const full = envFull(env);
+        const b = document.createElement('button');
+        b.className = 'env' + (full ? '' : ' blocked') + (current && current.st === st.id && current.env === env.id ? ' now' : '');
+        b.innerHTML =
+          '<span class="play">' + PLAY_IC + '</span>' +
+          '<span class="txt"><span class="nm"></span><span class="ds"></span></span>' +
+          (full ? '' : LOCK.replace('class="badge"', 'class="lk"'));
+        b.querySelector('.nm').textContent = env[lang];
+        b.querySelector('.ds').textContent = envDesc(env);
+        b.addEventListener('click', () => playEnv(st, env, full));
+        envsBox.appendChild(b);
+      });
+      showView('state');
+    }
+
+    function playEnv(st, env, full) {
+      // Уже играет эта же среда — второй тап останавливает
+      if (current && current.st === st.id && current.env === env.id && !paused) { stopAll(); showView('now'); return; }
+      current = { st: st.id, env: env.id };
+      startedAt = Date.now();
+      cancelTimer();
+      applyMix(env.mix, SCENE_FADE);
+      if (env.timer) setTimer(env.timer);
+      clearMixHighlight();
+      saveLast();
+      refreshAll();
+      showView('now');
+      if (!full && !IS_PRO) {
+        // Сначала человек слышит урезанную версию и понимает, чего не хватает
+        setTimeout(() => { if (current && current.st === st.id && current.env === env.id) showPaywall(); }, 2500);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Карточка «Сейчас»
+    // ═══════════════════════════════════════════════════════════════
+    const nowCard = document.getElementById('now-card');
+    const nowEmpty = document.getElementById('now-empty');
+    const btnPP = document.getElementById('btn-pp');
+    const btnTune = document.getElementById('btn-tune');
+    const clockEl = document.getElementById('now-clock');
+
+    function refreshNow() {
+      const on = anyActive();
+      nowCard.classList.toggle('on', on);
+      nowEmpty.classList.toggle('on', !on);
+      nowCard.classList.toggle('paused', paused);
+      // Играет — состояния уходят на второй план: «Другие состояния».
+      // На пустом экране заголовок дублировал бы вопрос — прячем.
+      document.getElementById('head-states').textContent = t('otherStates');
+      document.getElementById('head-states').style.display = on ? '' : 'none';
+
+      if (on) {
+        const l = label();
+        document.getElementById('now-eyebrow').textContent = t('eyebrow');
+        document.getElementById('now-state').textContent = l.top;
+        document.getElementById('now-env').textContent = l.sub + (mixMatchesEnv() ? '' : ' · ' + t('edited'));
+        document.getElementById('now-layers').textContent =
+          SOUNDS.filter(s => state[s.id].active).map(s => nm(s.id)).join(' · ');
+        btnPP.textContent = paused ? t('resume') : t('pause');
+      }
+
+      btnPP.classList.toggle('lead', !paused);
+      document.querySelectorAll('.state').forEach(b => {
+        b.classList.toggle('now', !!current && !current.name && current.st === b.dataset.st && on);
+      });
+      updateClock();
+    }
+
+    function updateClock() {
+      if (!anyActive()) { clockEl.textContent = ''; return; }
+      if (timerEnd) {
+        const left = Math.max(0, timerEnd - Date.now());
+        const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
+        clockEl.textContent = m + ':' + String(s).padStart(2, '0');
+        clockEl.classList.add('timer');
+        return;
+      }
+      clockEl.classList.remove('timer');
+      const e = Math.max(0, Date.now() - startedAt);
+      const h = Math.floor(e / 3600000), m = Math.floor((e % 3600000) / 60000), s = Math.floor((e % 60000) / 1000);
+      clockEl.textContent = (h ? h + ':' + String(m).padStart(2, '0') : String(m)) + ':' + String(s).padStart(2, '0');
+    }
+    setInterval(updateClock, 1000);
+
+    btnPP.addEventListener('click', () => { paused ? resumeAll() : pauseAll(); });
+    document.getElementById('now-stop').addEventListener('click', stopAll);
+    btnTune.addEventListener('click', openTune);
+
+    function pauseAll() {
+      if (!anyActive()) return;
+      paused = true;
+      SOUNDS.forEach(s => {
+        if (state[s.id].active && els[s.id]) fadeTo(s.id, 0, 0.45, () => { try { els[s.id].pause(); } catch (e) {} });
+      });
+      updateMediaSession();
+      refreshAll();
+    }
+
+    function resumeAll() {
+      paused = false;
+      SOUNDS.forEach(s => { if (state[s.id].active) startSound(s.id, 0.7); });
+      refreshAll();
+    }
+
+    function stopAll() {
+      SOUNDS.forEach(s => { if (state[s.id].active) { state[s.id].active = false; stopSound(s.id); } });
+      stopAnimate();
+      current = null;
+      paused = false;
+      clearMixHighlight();
+      cancelTimer();
+      saveLast();
+      refreshAll();
+    }
+
+    // Мини-плеер: на втором и третьем экране всегда видно, что играет
+    const mini = document.getElementById('mini');
+    const miniPP = document.getElementById('mini-pp');
+
+    function refreshMini() {
+      const on = anyActive() && view !== 'now';
+      mini.classList.toggle('on', on);
+      mini.classList.toggle('paused', paused);
+      if (!on) return;
+      const l = label();
+      // Человек видит состояние, в котором находится, а не список файлов
+      document.getElementById('mini-nm').textContent = t('eyebrow') + ' · ' + l.top;
+      document.getElementById('mini-ds').textContent = l.sub;
+      miniPP.innerHTML = paused ? PLAY_IC : PAUSE_IC;
+    }
+    mini.addEventListener('click', e => {
+      if (e.target.closest('#mini-pp')) { paused ? resumeAll() : pauseAll(); return; }
+      showView('now');
+    });
+
+    function refreshAll() { refreshNow(); refreshMini(); refreshTunePP(); renderLayers(); syncCards(); }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Экран 3. Настройка среды
+    // ═══════════════════════════════════════════════════════════════
+    const layersBox = document.getElementById('layers');
+
+    function openTune() {
+      const eb = document.getElementById('tune-eyebrow');
+      const ti = document.getElementById('tune-title');
+      const su = document.getElementById('tune-sub');
+      if (current && !current.name) {
+        // Пространство состояния: Сосредоточиться → Глубокая работа → эффект
+        const st = stateById(current.st);
+        const env = st?.envs.find(e => e.id === current.env);
+        eb.textContent = st ? st[lang][0] : '';
+        ti.textContent = env ? env[lang] : t('tuneTitle');
+        su.textContent = st?.fx ? st.fx[lang] : t('tuneSub');
+      } else if (current && current.name) {
+        eb.textContent = t('custom');
+        ti.textContent = current.name;
+        su.textContent = t('customMood');
+      } else {
+        eb.textContent = '';
+        ti.textContent = t('tuneTitle');
+        su.textContent = t('tuneSub');
+      }
+      refreshTunePP();
+      renderLayers();
+      showView('tune');
+    }
+
+    // Главное действие экрана — продолжить или поставить на паузу
+    const tunePP = document.getElementById('tune-pp');
+    tunePP.addEventListener('click', () => { paused ? resumeAll() : pauseAll(); });
+    function refreshTunePP() {
+      tunePP.textContent = paused ? t('resume') : t('pause');
+      tunePP.classList.toggle('paused', paused);
+      tunePP.style.display = anyActive() ? '' : 'none';
+    }
+
+    // ── Быстрые контролы атмосферы ──
+    const lvBtns = [document.getElementById('lv-soft'), document.getElementById('lv-mid'), document.getElementById('lv-rich')];
+    lvBtns.forEach(b => b.addEventListener('click', () => {
+      atmo.level = parseFloat(b.dataset.lv);
+      lvBtns.forEach(x => x.classList.toggle('on', x === b));
+      if (paused) resumeAll();
+      applyAtmo();
+      scheduleSave();
+    }));
+
+    const slWarm = document.getElementById('sl-warm');
+    const slAlive = document.getElementById('sl-alive');
+    function bindAtmoSlider(sl, key) {
+      sl.addEventListener('input', e => {
+        const v = parseInt(e.target.value, 10);
+        e.target.style.setProperty('--val', ((v + 100) / 2) + '%');
+        atmo[key] = v / 100;
+        if (paused) resumeAll();
+        applyAtmo(0.4);
+        scheduleSave();
+      });
+    }
+    bindAtmoSlider(slWarm, 'warm');
+    bindAtmoSlider(slAlive, 'alive');
+
+    function syncAtmoUI() {
+      lvBtns.forEach(b => b.classList.toggle('on', parseFloat(b.dataset.lv) === atmo.level));
+      slWarm.value = Math.round(atmo.warm * 100);
+      slWarm.style.setProperty('--val', ((atmo.warm * 100 + 100) / 2) + '%');
+      slAlive.value = Math.round(atmo.alive * 100);
+      slAlive.style.setProperty('--val', ((atmo.alive * 100 + 100) / 2) + '%');
+    }
+
+    // ── Спойлер деталей: слои и библиотека — advanced-слой ──
+    const detailWrap = document.getElementById('detail-wrap');
+    const toggleDetail = document.getElementById('toggle-detail');
+    let detailOpen = false;
+    toggleDetail.addEventListener('click', () => {
+      detailOpen = !detailOpen;
+      detailWrap.style.display = detailOpen ? '' : 'none';
+      toggleDetail.classList.toggle('open', detailOpen);
+      toggleDetail.textContent = detailOpen ? t('detailClose') : t('detailOpen');
+      if (detailOpen) renderLayers();
+    });
+
+    function renderLayers() {
+      layersBox.innerHTML = '';
+      const act = SOUNDS.filter(s => state[s.id].active);
+      act.forEach(s => {
+        const v = Math.round(state[s.id].volume * 100);
+        const row = document.createElement('div');
+        row.className = 'layer';
+        row.innerHTML =
+          '<span class="ic">' + IC[s.id] + '</span>' +
+          '<span class="body"><span class="nm"></span>' +
+          '<input type="range" min="0" max="100" value="' + v + '" style="--val:' + v + '%"></span>' +
+          '<button class="off">×</button>';
+        row.querySelector('.nm').textContent = nm(s.id);
+        const sl = row.querySelector('input');
+        sl.addEventListener('input', e => {
+          const val = e.target.value;
+          e.target.style.setProperty('--val', val + '%');
+          // Пользователь задал итоговую громкость — пересчитываем базу,
+          // чтобы быстрые контролы не перетёрли его выбор
+          baseVol[s.id] = (val / 100) / atmoMult(s.id);
+          setVolume(s.id, val / 100);
+          if (paused) resumeAll();
+          scheduleSave();
+          refreshNow();
+        });
+        row.querySelector('.off').addEventListener('click', () => toggleSound(s.id));
+        layersBox.appendChild(row);
+      });
+      document.getElementById('head-layers').style.display = act.length ? '' : 'none';
+    }
+
+    // Библиотека — вкладки категорий, карточки без ползунков:
+    // громкость живёт в слоях, здесь только «есть / нет»
+    const tabsBox = document.getElementById('tabs');
+    const panesBox = document.getElementById('panes');
+    let activeCat = 0;
+
+    CATS.forEach((c, i) => {
+      const tab = document.createElement('button');
+      tab.className = 'tab' + (i === 0 ? ' active' : '');
+      tab.dataset.cat = c.id;
+      tab.addEventListener('click', () => showCat(i));
+      tabsBox.appendChild(tab);
+
+      const pane = document.createElement('div');
+      pane.className = 'pane' + (i === 0 ? ' active' : '');
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      pane.appendChild(grid);
+      panesBox.appendChild(pane);
+
+      c.sounds.forEach(s => {
+        const card = document.createElement('div');
+        card.className = 'card' + (allowed(s) ? '' : ' blocked');
+        card.id = 'card-' + s.id;
+        const badge = !allowed(s) ? LOCK : (s.hp ? HP : '');
+        card.innerHTML =
+          '<div class="spinner"></div>' + badge +
+          '<div class="card-icon">' + IC[s.id] + '</div>' +
+          '<div class="card-name" data-name="' + s.id + '"></div>';
+        card.addEventListener('click', () => toggleSound(s.id));
+        grid.appendChild(card);
+      });
+    });
+
+    function showCat(i) {
+      activeCat = Math.max(0, Math.min(CATS.length - 1, i));
+      tabsBox.querySelectorAll('.tab').forEach((el, k) => el.classList.toggle('active', k === activeCat));
+      panesBox.querySelectorAll('.pane').forEach((el, k) => el.classList.toggle('active', k === activeCat));
+      const tab = tabsBox.children[activeCat];
+      if (tab) tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+
+    let tx = 0, ty = 0;
+    panesBox.addEventListener('touchstart', e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+    panesBox.addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.8) showCat(activeCat + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+
+    const setCardLoading = (id, on) => document.getElementById('card-' + id)?.classList.toggle('loading', on);
+    const syncCards = () => SOUNDS.forEach(s =>
+      document.getElementById('card-' + s.id)?.classList.toggle('active', state[s.id].active));
+
+    function toggleSound(id) {
+      const s = byId(id);
+      if (!allowed(s)) { showPaywall(); return; }
+      const st = state[id];
+      st.active = !st.active;
+      if (st.active) {
+        if (!anyActive()) startedAt = Date.now();
+        // Вписываем новый звук в атмосферу: чем плотнее занята его
+        // спектральная полоса, тем тише он входит (частотное маскирование)
+        const band = PROF[id]?.band;
+        const busy = SOUNDS.filter(x => x.id !== id && state[x.id].active &&
+          (PROF[x.id]?.band === band || PROF[x.id]?.band === 'broad' || band === 'broad')).length;
+        const fit = Math.max(0.45, 1 - 0.16 * busy);
+        const v = Math.max(0.15, Math.min(1, s.def * fit));
+        baseVol[id] = v;
+        state[id].volume = Math.min(1, v * atmoMult(id));
+        if (fit < 0.85) showToast(t('fitted'));
+        startSound(id);
+        if (paused) resumeAll();
+      }
+      else stopSound(id);
+      if (!anyActive()) { current = null; cancelTimer(); }
+      clearMixHighlight();
+      scheduleSave();
+      refreshAll();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Свои миксы и последнее состояние
+    // ═══════════════════════════════════════════════════════════════
+    const STORE_KEY = 'tishina_v2', OLD_KEY = 'tishina_v1', MAX_MIXES = 8;
+
+    const loadStore = () => {
+      try {
+        const s = JSON.parse(localStorage.getItem(STORE_KEY));
+        if (s) return s;
+        // Переезд со старой версии: миксы человека не теряем
+        const old = JSON.parse(localStorage.getItem(OLD_KEY));
+        if (old) return { presets: old.presets || [], last: old.last ? { mix: old.last, ref: null } : null };
+      } catch (e) {}
+      return { presets: [], last: null };
+    };
+    const saveStore = d => { try { localStorage.setItem(STORE_KEY, JSON.stringify(d)); } catch (e) {} };
+
+    function saveLast() {
+      const s = loadStore();
+      s.last = anyActive() ? { mix: currentMix(), ref: current, atmo: { ...atmo } } : null;
+      saveStore(s);
+    }
+    let saveDebounce = null;
+    const scheduleSave = () => { clearTimeout(saveDebounce); saveDebounce = setTimeout(saveLast, 600); };
+
+    let activeMix = null;
+    const clearMixHighlight = () => {
+      activeMix = null;
+      document.querySelectorAll('.mix-btn').forEach(b => b.classList.remove('active'));
+    };
+
+    const mixesBox = document.getElementById('mixes');
+
+    function renderMixes() {
+      const presets = loadStore().presets;
+      mixesBox.innerHTML = '';
+      document.getElementById('head-mixes').style.display = presets.length ? '' : 'none';
+      mixesBox.style.display = presets.length ? '' : 'none';
+      presets.forEach((p, i) => {
+        const b = document.createElement('button');
+        b.className = 'mix-btn' + (activeMix === i ? ' active' : '');
+        b.innerHTML = '<span></span><span class="del">×</span>';
+        b.querySelector('span').textContent = p.name;
+        b.addEventListener('click', e => {
+          if (e.target.classList.contains('del')) {
+            e.stopPropagation();
+            const s = loadStore(); s.presets.splice(i, 1); saveStore(s);
+            renderMixes(); showToast(t('deleted')); return;
+          }
+          if (activeMix === i) { stopAll(); renderMixes(); return; }
+          activeMix = i;
+          current = { name: p.name };
+          startedAt = Date.now();
+          cancelTimer();
+          applyMix(p.mix, SCENE_FADE);
+          saveLast();
+          refreshAll();
+          renderMixes();
+        });
+        mixesBox.appendChild(b);
+      });
+    }
+
+    const modal = document.getElementById('modal');
+    const nameInput = document.getElementById('preset-name');
+
+    document.getElementById('btn-save').addEventListener('click', () => {
+      if (!anyActive()) { showToast(t('needSounds')); return; }
+      if (loadStore().presets.length >= MAX_MIXES) { showToast(t('maxPresets')); return; }
+      document.getElementById('modal-hint').textContent =
+        SOUNDS.filter(s => state[s.id].active).map(s => nm(s.id)).join(', ');
+      const l = label();
+      nameInput.value = l.sub && !current?.name ? l.sub : '';
+      modal.classList.add('open');
+      setTimeout(() => nameInput.focus(), 50);
+    });
+
+    const closeModal = () => modal.classList.remove('open');
+    document.getElementById('modal-cancel').addEventListener('click', closeModal);
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+    document.getElementById('modal-ok').addEventListener('click', doSave);
+    nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSave(); });
+
+    function doSave() {
+      const name = nameInput.value.trim() || (lang === 'ru' ? 'Мой микс' : 'My mix');
+      const s = loadStore();
+      s.presets.push({ name, mix: currentMix() });
+      saveStore(s);
+      renderMixes(); closeModal();
+      showToast(t('saved') + ': ' + name);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Оживить — медленный дрейф громкостей
+    // ═══════════════════════════════════════════════════════════════
+    let animateInterval = null;
+    const btnAnimate = document.getElementById('btn-animate');
+    btnAnimate.addEventListener('click', () => {
+      if (animateInterval) stopAnimate();
+      else {
+        if (!anyActive()) { showToast(t('needSounds')); return; }
+        animateInterval = setInterval(animateStep, 4000);
+        btnAnimate.classList.add('active');
+        animateStep();
+      }
+    });
+
+    function stopAnimate() {
+      if (!animateInterval) return;
+      clearInterval(animateInterval); animateInterval = null;
+      btnAnimate.classList.remove('active');
+    }
+
+    function animateStep() {
+      SOUNDS.forEach(s => {
+        if (!state[s.id].active) return;
+        const next = Math.min(0.98, Math.max(0.05, state[s.id].volume + (Math.random() - 0.5) * 0.35));
+        setVolume(s.id, next, 3.5);
+      });
+      if (view === 'tune') renderLayers();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Таймер
+    // ═══════════════════════════════════════════════════════════════
+    let timerTimeout = null, fadeTimeout = null, timerEnd = null;
+    const btnTimer = document.getElementById('btn-timer');
+    const timerMenu = document.getElementById('timer-menu');
+
+    btnTimer.addEventListener('click', e => { e.stopPropagation(); timerMenu.classList.toggle('open'); });
+    timerMenu.querySelectorAll('.timer-option').forEach(o => {
+      o.addEventListener('click', () => {
+        const m = parseInt(o.dataset.min, 10);
+        timerMenu.classList.remove('open');
+        if (m === 0) cancelTimer(); else setTimer(m);
+        refreshNow();
+      });
+    });
+
+    function setTimer(min) {
+      clearTimers();
+      const ms = min * 60000;
+      timerEnd = Date.now() + ms;
+      fadeTimeout = setTimeout(() => {
+        clockEl.classList.add('fading');
+        setMasterVolume(0.0001, TIMER_FADE);
+      }, Math.max(0, ms - TIMER_FADE * 1000));
+      timerTimeout = setTimeout(() => {
+        stopAll(); masterVol = 1; showToast(t('timerDone'));
+      }, ms);
+      btnTimer.classList.add('active');
+      updateClock();
+    }
+
+    function clearTimers() {
+      [timerTimeout, fadeTimeout].forEach(x => x && clearTimeout(x));
+      timerTimeout = fadeTimeout = null;
+    }
+
+    function cancelTimer() {
+      clearTimers();
+      timerEnd = null;
+      btnTimer.classList.remove('active');
+      clockEl.classList.remove('fading', 'timer');
+      if (masterVol < 1) setMasterVolume(1, 0.5);
+    }
+
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.timer-wrap')) timerMenu.classList.remove('open');
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Поделиться, тост, шторка уведомлений
+    // ═══════════════════════════════════════════════════════════════
+    document.getElementById('btn-share').addEventListener('click', () => {
+      const p = new URLSearchParams();
+      SOUNDS.forEach(s => { if (state[s.id].active) p.set(s.id, Math.round(state[s.id].volume * 100)); });
+      if (current && !current.name) { p.set('st', current.st); p.set('env', current.env); }
+      const url = location.origin + location.pathname + (p.toString() ? '?' + p : '');
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(url).then(() => showToast(t('copied')), () => showToast(t('linkReady')));
+      } else showToast(t('linkReady'));
+    });
+
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2500);
+    }
+
+    function updateMediaSession() {
+      if (!('mediaSession' in navigator)) return;
+      const playing = anyActive() && !paused;
+      navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+      if (playing) {
+        const l = label();
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: l.sub || l.top || t('brand'),
+          artist: l.top || t('brand'),
+          album: t('brand')
+        });
+        try {
+          navigator.mediaSession.setActionHandler('pause', pauseAll);
+          navigator.mediaSession.setActionHandler('play', resumeAll);
+          navigator.mediaSession.setActionHandler('stop', stopAll);
+        } catch (e) {}
+      }
+    }
+
+    function wake() {
+      if (paused) return;
+      SOUNDS.forEach(s => {
+        const el = els[s.id];
+        if (state[s.id].active && el && el.paused) el.play().catch(() => {});
+      });
+    }
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
+    window.addEventListener('focus', wake);
+    window.addEventListener('pageshow', wake);
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Подсказка про фон на iPhone
+    // ═══════════════════════════════════════════════════════════════
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+               || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const inTelegram = !!TG?.initData || !!TG?.platform;
+    const HINT_KEY = 'tishina_hint_bg';
+    const hint = document.getElementById('hint');
+
+    let hintTimer = null;
+    function scheduleHint() {
+      if (hintTimer || !isIOS || !inTelegram) return;
+      try { if (localStorage.getItem(HINT_KEY)) return; } catch (e) {}
+      hintTimer = setTimeout(() => { if (anyActive()) hint.classList.add('show'); }, 20000);
+    }
+    function hideHint(forever) {
+      hint.classList.remove('show');
+      if (forever) { try { localStorage.setItem(HINT_KEY, '1'); } catch (e) {} }
+    }
+    document.getElementById('hint-close').addEventListener('click', () => hideHint(true));
+    document.getElementById('hint-open').addEventListener('click', () => {
+      const p = new URLSearchParams();
+      SOUNDS.forEach(s => { if (state[s.id].active) p.set(s.id, Math.round(state[s.id].volume * 100)); });
+      if (current && !current.name) { p.set('st', current.st); p.set('env', current.env); }
+      if (IS_PRO) p.set('pro', '1');
+      p.set('lang', lang);
+      const url = location.origin + location.pathname + '?' + p;
+      hideHint(true);
+      if (TG?.openLink) TG.openLink(url, { try_instant_view: false });
+      else window.open(url, '_blank');
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Экран подписки
+    // ═══════════════════════════════════════════════════════════════
+    const INVOICE = QS.get('inv') || '';
+    const payBox = document.getElementById('pay');
+
+    function showPaywall() {
+      const list = document.getElementById('pay-list');
+      list.innerHTML = '';
+      t('payRows').forEach(([head, sub]) => {
+        const row = document.createElement('div');
+        row.className = 'pay-row';
+        row.innerHTML = '<span class="dot"></span><span class="rt"></span>';
+        const rt = row.querySelector('.rt');
+        rt.textContent = head;
+        const sm = document.createElement('small');
+        sm.textContent = sub;
+        rt.appendChild(sm);
+        list.appendChild(row);
+      });
+      document.getElementById('pay-title').textContent = t('payTitle');
+      document.getElementById('pay-sub').textContent   = t('paySub');
+      document.getElementById('pay-cta').textContent   = t('payCta');
+      document.getElementById('pay-note').textContent  = t('payNote');
+      document.getElementById('pay-close').textContent = t('payClose');
+      payBox.classList.add('open');
+    }
+
+    const hidePaywall = () => payBox.classList.remove('open');
+    document.getElementById('pay-close').addEventListener('click', hidePaywall);
+    payBox.addEventListener('click', e => { if (e.target === payBox) hidePaywall(); });
+
+    document.getElementById('pay-cta').addEventListener('click', () => {
+      if (!INVOICE || !TG?.openInvoice) { showToast(t('payNoLink')); return; }
+      TG.openInvoice(INVOICE, status => {
+        if (status === 'paid') {
+          hidePaywall();
+          showToast('✓ Premium');
+          try { localStorage.setItem(PRO_KEY, String(UID)); } catch (e) {}
+          setTimeout(() => location.reload(), 900);
+        }
+      });
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Язык
+    // ═══════════════════════════════════════════════════════════════
+    function applyLang() {
+      document.documentElement.lang = lang;
+      document.title = lang === 'ru' ? 'ТИШИНА' : 'TISHINA';
+      ['brand', 'brand2', 'brand3'].forEach(id => { document.getElementById(id).textContent = t('brand'); });
+
+      const lb = document.getElementById('lang');
+      lb.textContent = lang === 'ru' ? '🇺🇸' : '🪆';
+      lb.title = lang === 'ru' ? 'English' : 'Русский';
+
+      document.getElementById('ask').textContent = t('ask');
+      document.getElementById('ask-sub').innerText = t('askSub');
+      document.getElementById('head-mixes').textContent = t('headMixes');
+      document.getElementById('head-layers').textContent = t('headLayers');
+      document.getElementById('head-add').textContent = t('headAdd');
+      document.getElementById('head-atmo').textContent = t('headAtmo');
+      document.getElementById('lv-soft').textContent = t('atmoSoft');
+      document.getElementById('lv-mid').textContent = t('atmoMid');
+      document.getElementById('lv-rich').textContent = t('atmoRich');
+      document.getElementById('warm-l').textContent = t('warmL');
+      document.getElementById('warm-r').textContent = t('warmR');
+      document.getElementById('alive-l').textContent = t('aliveL');
+      document.getElementById('alive-r').textContent = t('aliveR');
+      toggleDetail.textContent = detailOpen ? t('detailClose') : t('detailOpen');
+
+      statesBox.querySelectorAll('.state').forEach(b => {
+        const st = stateById(b.dataset.st);
+        b.querySelector('.nm').textContent = st[lang][0];
+        b.querySelector('.ds').textContent = st[lang][1];
+      });
+
+      tabsBox.querySelectorAll('.tab').forEach(el => { el.textContent = t(el.dataset.cat); });
+      document.querySelectorAll('[data-name]').forEach(el => { el.textContent = nm(el.dataset.name); });
+
+      btnTimer.textContent = t('timer');
+      btnTune.textContent  = t('tune');
+      btnAnimate.textContent = t('animate');
+      document.getElementById('btn-save').textContent  = t('save');
+      document.getElementById('btn-share').textContent = t('share');
+
+      timerMenu.querySelectorAll('.timer-option').forEach(o => {
+        o.textContent = o.dataset.min === '0' ? t('cancel') : o.dataset.min + ' ' + t('min');
+      });
+
+      document.getElementById('hint-text').innerHTML    = t('hintText');
+      document.getElementById('hint-open').textContent  = t('hintOpen');
+      document.getElementById('hint-close').textContent = t('hintClose');
+
+      document.getElementById('modal-title').textContent  = t('saveTitle');
+      document.getElementById('modal-cancel').textContent = t('cancel');
+      document.getElementById('modal-ok').textContent     = t('save');
+      nameInput.placeholder = t('namePh');
+
+      if (openedState && view === 'state') openState(stateById(openedState));
+      if (view === 'tune') openTune();
+      refreshAll();
+    }
+
+    document.getElementById('lang').addEventListener('click', () => {
+      lang = lang === 'ru' ? 'en' : 'ru';
+      try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
+      applyLang();
+      updateMediaSession();
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Восстановление: ссылка → последнее состояние → пустой экран
+    // ═══════════════════════════════════════════════════════════════
+    (() => {
+      let mix = {}, ref = null, fromUrl = false;
+
+      const qsSt = QS.get('st'), qsEnv = QS.get('env');
+      if (qsSt && qsEnv) {
+        const st = stateById(qsSt);
+        const env = st?.envs.find(e => e.id === qsEnv);
+        if (env) { mix = { ...env.mix }; ref = { st: st.id, env: env.id }; fromUrl = true; }
+      }
+      SOUNDS.forEach(s => {
+        const v = QS.get(s.id);
+        if (v === null) return;
+        const n = Math.max(0, Math.min(100, parseInt(v, 10) || 0));
+        if (!fromUrl) mix = {};
+        if (n > 0) { mix[s.id] = n; fromUrl = true; }
+      });
+
+      let savedAtmo = null;
+      if (!fromUrl) {
+        const last = loadStore().last;
+        if (last && last.mix && Object.keys(last.mix).length) {
+          mix = last.mix; ref = last.ref || null; savedAtmo = last.atmo || null;
+        }
+      }
+      if (!Object.keys(mix).length) return;
+
+      current = ref;
+      startedAt = Date.now();
+      if (savedAtmo) Object.assign(atmo, savedAtmo);
+      SOUNDS.forEach(s => {
+        const v = (mix[s.id] || 0) / 100;
+        if (v <= 0 || !allowed(s)) return;
+        state[s.id] = { active: true, volume: v };
+        baseVol[s.id] = v / atmoMult(s.id);
+      });
+      syncAtmoUI();
+
+      // Браузер не даёт играть без касания. Вместо молчаливой карточки
+      // показываем состояние на паузе — кнопка «Продолжить» и есть касание.
+      paused = true;
+      showToast(t('resumeHint'));
+    })();
+
+    applyLang();
+    renderMixes();
+    showView('now');
+
+  })();
+  </script>
+
+</body>
+</html>
