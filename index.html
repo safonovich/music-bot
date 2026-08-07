@@ -188,8 +188,9 @@
     .scene.active .ic { color: var(--accent); }
     .scene .ic svg { width: 100%; height: 100%; }
 
-    .scene .txt { flex: 1; min-width: 0; }
+    .scene .txt { flex: 1; min-width: 0; display: block; }
     .scene .nm {
+      display: block;
       font-size: 14.5px;
       font-weight: 500;
       color: var(--text);
@@ -197,6 +198,7 @@
     }
     .scene.active .nm { color: var(--accent); }
     .scene .ds {
+      display: block;
       font-size: 11.5px;
       color: var(--text-dim);
       margin-top: 2px;
@@ -726,7 +728,7 @@
           paris:  ['Парижское кафе', 'Гул зала, улица за дверью, дождь'],
           night:  ['Ночной поезд',   'Стук колёс, дождь в окно, редкие голоса'],
           airport:['Зал ожидания',   'Далёкие объявления, шаги, ровный гул'],
-          deep:   ['Глубокая работа','Офис, клавиши, дождь и альфа-ритм'],
+          deep:   ['Глубокая работа','Офис, клавиши и дождь за окном'],
           window: ['Дождь в окно',   'Камин рядом, капли по стеклу'],
           morning:['Утро в парке',   'Птицы, ветер в листве, шаги вдали'],
           ocean:  ['Океан и сон',    'Волны, дождь, медленный дельта-ритм'],
@@ -787,7 +789,7 @@
           paris:  ['Paris Cafe',     'Room murmur, street outside, light rain'],
           night:  ['Night Train',    'Wheels on rails, rain, distant voices'],
           airport:['Airport Lounge', 'Far announcements, footsteps, steady hum'],
-          deep:   ['Deep Work',      'Office, keys, rain and alpha rhythm'],
+          deep:   ['Deep Work',      'Office, keys and rain outside'],
           window: ['Rainy Window',   'Fireplace nearby, drops on glass'],
           morning:['Morning Park',   'Birds, wind in leaves, steps away'],
           ocean:  ['Ocean Sleep',    'Waves, rain, slow delta rhythm'],
@@ -929,11 +931,11 @@
       { id:'paris',   ic:'cafe',    mix:{ cafe:52, street:26, rain:34 } },
       { id:'night',   ic:'train',   mix:{ train:50, rain:32, crowd:16 } },
       { id:'airport', ic:'airport', mix:{ airport:48, crowd:22, wind:20 } },
-      { id:'deep',    ic:'office',  mix:{ office:44, rain:30, softnoise:26, alpha:24 } },
+      { id:'deep',    ic:'office',  mix:{ office:46, rain:28, softnoise:22 } },
       { id:'window',  ic:'window',  mix:{ window:52, hearth:30, rain:26, deepnoise:18 } },
       { id:'morning', ic:'park',    mix:{ park:46, birds:34, wind:20 } },
-      { id:'ocean',   ic:'waves',   mix:{ waves:52, rain:26, delta:24 } },
-      { id:'hearth',  ic:'hearth',  mix:{ hearth:48, fire:36, bowl:22 } },
+      { id:'ocean',   ic:'waves',   mix:{ waves:52, rain:26, delta:14 } },
+      { id:'hearth',  ic:'hearth',  mix:{ hearth:48, fire:34, bowl:15 } },
       { id:'metro',   ic:'metro',   mix:{ metro:46, crowd:20, deepnoise:20, rain:18 } },
       { id:'flight',  ic:'plane',   mix:{ plane:50, softnoise:24, ambient:22 } },
       { id:'shop',    ic:'shop',    mix:{ shop:44, crowd:26, street:20, rain:18 } },
@@ -942,7 +944,7 @@
 
     const SOUNDS = CATS.flatMap(c => c.sounds.map(s => ({ ...s, cat: c.id, file: s.id + '.mp3' })));
     const allowed = s => !!s.free || IS_PRO;
-    const FADE = 0.4, TIMER_FADE = 30;
+    const FADE = 0.4, SCENE_FADE = 2.5, TIMER_FADE = 30;
 
     // ───────────────────────────────────────── Звук (медиаэлементы)
     const els = {}, state = {}, fades = {};
@@ -989,7 +991,7 @@
       }, seconds * 1000 / steps);
     }
 
-    async function startSound(id) {
+    async function startSound(id, fade = FADE) {
       const el = ensureEl(id);
       scheduleHint();
       setCardLoading(id, true);
@@ -997,7 +999,7 @@
         el.volume = 0;
         await el.play();
         setCardLoading(id, false);
-        fadeTo(id, state[id].volume * masterVol, FADE);
+        fadeTo(id, state[id].volume * masterVol, fade);
       } catch (e) { setCardLoading(id, false); }
       updateMediaSession();
     }
@@ -1143,7 +1145,7 @@
       if (same) { activeScene = null; stopAll(); return; }
       activeScene = sc.id;
       btn.classList.add('active');
-      applyMix(sc.mix);
+      applyMix(sc.mix, SCENE_FADE);
     }
 
     const setCardLoading = (id, on) => document.getElementById('card-'+id)?.classList.toggle('loading', on);
@@ -1202,7 +1204,7 @@
       return m;
     }
 
-    function applyMix(mix) {
+    function applyMix(mix, fade = FADE) {
       SOUNDS.forEach(s => {
         const vol = allowed(s) ? (mix[s.id] || 0) / 100 : 0;
         const sl = document.getElementById('slider-' + s.id);
@@ -1211,10 +1213,10 @@
         if (vol > 0) {
           state[s.id].volume = vol;
           if (!state[s.id].active) {
-            state[s.id].active = true; setCardActive(s.id, true); startSound(s.id);
-          } else setVolume(s.id, vol, FADE);
+            state[s.id].active = true; setCardActive(s.id, true); startSound(s.id, fade);
+          } else setVolume(s.id, vol, fade);
         } else if (state[s.id].active) {
-          state[s.id].active = false; setCardActive(s.id, false); stopSound(s.id);
+          state[s.id].active = false; setCardActive(s.id, false); stopSound(s.id, fade);
         }
       });
       refreshStopBtn();
@@ -1508,8 +1510,8 @@
     // Каждый сценарий — готовая атмосфера. Платные слои у бесплатных
     // просто не включатся, базовые останутся.
     const GOALS = [
-      { id:'focus', mix:{ rain:48, cafe:34, softnoise:30, alpha:26, ambient:20 } },
-      { id:'sleep', mix:{ rain:45, waves:38, deepnoise:32, delta:26 }, timer:45 },
+      { id:'focus', mix:{ rain:46, cafe:34, softnoise:26, ambient:18 } },
+      { id:'sleep', mix:{ rain:45, waves:38, deepnoise:30, delta:14 }, timer:45 },
       { id:'relax', mix:{ fire:40, bowl:42, waves:20, drone432:26, handpan:30 } },
       // Дождь здесь обязателен: без него у бесплатных сценарий молчит
       { id:'place', mix:{ train:50, window:32, rain:30, crowd:18 } },
