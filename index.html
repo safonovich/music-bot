@@ -592,7 +592,9 @@
         skip: 'Собрать самому',
         names: {
           rain:'Дождь', thunder:'Гром', waves:'Волны', wind:'Ветер', fire:'Огонь', birds:'Птицы',
-          office:'Офис', street:'Улица', window:'Дождь в окно', hearth:'Камин',
+          cafe:'Кафе', office:'Офис', street:'Улица', shop:'Магазин',
+          park:'Парк', crowd:'Голоса', window:'Дождь в окно', hearth:'Камин',
+          highway:'Трасса', airport:'Аэропорт',
           plane:'Самолёт', car:'Машина', train:'Поезд', metro:'Метро', bus:'Автобус', boat:'Лодка',
           handpan:'Хендпан', didgeridoo:'Диджериду', ambient:'Эмбиент', bowl:'Чаша', drone432:'432 Гц',
           softnoise:'Мягкий шум', deepnoise:'Низкий гул',
@@ -624,7 +626,9 @@
         skip: 'Build my own',
         names: {
           rain:'Rain', thunder:'Thunder', waves:'Waves', wind:'Wind', fire:'Fire', birds:'Birds',
-          office:'Office', street:'Street', window:'Rain on window', hearth:'Fireplace',
+          cafe:'Cafe', office:'Office', street:'Street', shop:'Shop',
+          park:'Park', crowd:'Voices', window:'Rain on window', hearth:'Fireplace',
+          highway:'Highway', airport:'Airport',
           plane:'Plane', car:'Car', train:'Train', metro:'Metro', bus:'Bus', boat:'Boat',
           handpan:'Handpan', didgeridoo:'Didgeridoo', ambient:'Ambient', bowl:'Singing bowl', drone432:'432 Hz',
           softnoise:'Soft noise', deepnoise:'Deep hum',
@@ -653,6 +657,12 @@
       fire:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3.2 3.2 4.8 5.8 4.8 8.7A4.8 4.8 0 0 1 7.2 12c0-1.7.8-3 1.9-4 .1 1.3.8 2.2 1.7 2.6.3-2.4-.8-4.9 1.2-7.6z"/></svg>',
       birds:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10c1.6-2.2 3.2-2.2 4.8 0"/><path d="M13 8c1.8-2.4 3.4-2.4 5.2 0"/></svg>',
 
+      cafe:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h13v5a4.5 4.5 0 0 1-4.5 4.5h-4A4.5 4.5 0 0 1 4 14z"/><path d="M17 10.5h1.6a2.2 2.2 0 0 1 0 4.4H17"/><path d="M7 5.5c.6-.8.6-1.4 0-2.2M11 5.5c.6-.8.6-1.4 0-2.2" opacity="0.6"/><path d="M3 21h15"/></svg>',
+      shop:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18l-1.4 12.2a1.8 1.8 0 0 1-1.8 1.6H6.2a1.8 1.8 0 0 1-1.8-1.6z"/><path d="M8.5 10V6a3.5 3.5 0 0 1 7 0v4"/></svg>',
+      park:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 7.5 11h9z"/><path d="M12 8 8 15h8z"/><path d="M12 15v5.5"/><path d="M4 20.5h16" opacity="0.5"/></svg>',
+      crowd:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.6"/><circle cx="16" cy="9" r="2.2" opacity="0.7"/><path d="M3 19c0-2.8 2.2-5 5-5s5 2.2 5 5"/><path d="M14 19c0-2.4 1.8-4.2 4-4.2s3 1.4 3 3.4" opacity="0.7"/></svg>',
+      highway:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21 10 3M17 21 14 3"/><path d="M12 6.5v3M12 12v3M12 17.5v3" opacity="0.7"/></svg>',
+      airport:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18h20"/><path d="M5.5 14.5 4 10l2 .5 1.4 2.2 4.6.7-2.6-6 2.2.5 4 5.9 3.4.5a1.6 1.6 0 0 1 0 3.2z"/></svg>',
       office:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="12" rx="1.6"/><path d="M2 20h20M9.5 9h5M8 12.5h8"/></svg>',
       street:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3 6 21M15 3l3 18"/><path d="M12 5v2.5M12 11v2.5M12 17v2.5"/></svg>',
       window:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="15" rx="1.5"/><path d="M12 3v15M4 10.5h16"/><path d="M8 21l.8-1.6M15.2 21l.8-1.6" opacity="0.6"/></svg>',
@@ -688,12 +698,14 @@
         { id:'fire', def:0.60, free:true }, { id:'birds', def:0.55, free:true },
       ]},
       { id: 'city', sounds: [
-        { id:'office', def:0.45 }, { id:'street', def:0.45 },
+        { id:'cafe', def:0.50 }, { id:'office', def:0.45 }, { id:'street', def:0.45 },
+        { id:'shop', def:0.45 }, { id:'park', def:0.50 }, { id:'crowd', def:0.40 },
         { id:'window', def:0.55 }, { id:'hearth', def:0.50 },
       ]},
       { id: 'transport', sounds: [
-        { id:'plane', def:0.45 }, { id:'car', def:0.45 }, { id:'train', def:0.50 },
-        { id:'metro', def:0.45 }, { id:'bus', def:0.45 }, { id:'boat', def:0.50 },
+        { id:'plane', def:0.45 }, { id:'train', def:0.50 }, { id:'metro', def:0.45 },
+        { id:'car', def:0.45 }, { id:'bus', def:0.45 }, { id:'boat', def:0.50 },
+        { id:'highway', def:0.45 }, { id:'airport', def:0.45 },
       ]},
       { id: 'tones', sounds: [
         { id:'handpan', def:0.50, free:true }, { id:'didgeridoo', def:0.20, free:true },
@@ -1174,11 +1186,11 @@
     // Каждый сценарий — готовая атмосфера. Платные слои у бесплатных
     // просто не включатся, базовые останутся.
     const GOALS = [
-      { id:'focus', mix:{ rain:50, wind:16, softnoise:38, alpha:28, ambient:22 } },
+      { id:'focus', mix:{ rain:48, cafe:34, softnoise:30, alpha:26, ambient:20 } },
       { id:'sleep', mix:{ rain:45, waves:38, deepnoise:32, delta:26 }, timer:45 },
       { id:'relax', mix:{ fire:40, bowl:42, waves:20, drone432:26, handpan:30 } },
       // Дождь здесь обязателен: без него у бесплатных сценарий молчит
-      { id:'place', mix:{ train:52, window:34, rain:30, deepnoise:22 } },
+      { id:'place', mix:{ train:50, window:32, rain:30, crowd:18 } },
     ];
 
     const intro = document.getElementById('intro');
