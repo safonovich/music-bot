@@ -1098,7 +1098,7 @@
         payNote: 'Разовый платёж на 30 дней. Без автосписания — напомним, когда закончится.',
         payClose: 'Позже',
         payNoLink: 'Оплата открывается из бота — напишите ему /start',
-        hintText: 'Внутри Telegram на iPhone звук выключается, когда гаснет экран — так устроена система. <b>Откройте в браузере</b>, и он продолжит играть с заблокированным экраном.',
+        hintText: 'Похоже, система прервала звук, когда экран погас. Мы включили его снова. Если это повторится — <b>откройте в браузере</b>: там звук не прерывается.',
         hintOpen: 'Открыть в браузере', hintClose: 'Не сейчас',
         names: {
           rain:'Дождь', thunder:'Гром', waves:'Волны', wind:'Ветер', fire:'Огонь', birds:'Птицы',
@@ -1161,7 +1161,7 @@
         payNote: 'One-time payment for 30 days. No auto-renewal — we will remind you when it ends.',
         payClose: 'Later',
         payNoLink: 'Payment opens from the bot — send it /start',
-        hintText: 'Inside Telegram on iPhone the sound stops when the screen turns off — that is how the system works. <b>Open in a browser</b> and it will keep playing with the screen locked.',
+        hintText: 'It looks like the system interrupted the sound when the screen went dark. We brought it back. If it happens again — <b>open in a browser</b>: playback is never interrupted there.',
         hintOpen: 'Open in browser', hintClose: 'Not now',
         names: {
           rain:'Rain', thunder:'Thunder', waves:'Waves', wind:'Wind', fire:'Fire', birds:'Birds',
@@ -1589,7 +1589,6 @@
 
     async function startSound(id, fade = FADE) {
       const el = ensureEl(id);
-      scheduleHint();
       setCardLoading(id, true);
       try {
         if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
@@ -1941,9 +1940,6 @@
       clearMixHighlight();
       saveLast();
       refreshAll();
-      // Уснуть = экран сейчас погаснет. Про браузер говорим сразу,
-      // а не через 20 секунд, когда телефон уже заблокирован.
-      if (st.id === 'sleep') scheduleHint(2500);
       if (!stay) showView('now');
       if (!full && !IS_PRO) {
         // Сначала человек слышит урезанную версию и понимает, чего не хватает
@@ -2479,10 +2475,14 @@
     function wake() {
       if (paused) return;
       if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
+      let killed = 0;
       SOUNDS.forEach(s => {
         const el = els[s.id];
-        if (state[s.id].active && el && el.paused) el.play().catch(() => {});
+        if (state[s.id].active && el && el.paused) { killed++; el.play().catch(() => {}); }
       });
+      // Система оборвала фон — сами подняли звук и один раз объясняем,
+      // где он не прерывается. Пока фон живёт, подсказки нет.
+      if (killed > 0) scheduleHint(1500);
     }
     document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
     window.addEventListener('focus', wake);
