@@ -58,8 +58,18 @@
     }
     .topbar.center .brand { text-align: center; }
 
+    #access-line {
+      display: none;
+      padding: 2px 16px 0;
+      font-size: 11px;
+      letter-spacing: 0.4px;
+      color: var(--accent);
+      opacity: 0.75;
+    }
+    #access-line.on { display: block; }
+
     .icon-btn {
-      width: 32px; height: 32px;
+      width: 40px; height: 40px;
       flex-shrink: 0;
       border-radius: 50%;
       border: 1px solid var(--line);
@@ -115,8 +125,8 @@
 
     .now-stop {
       position: absolute;
-      top: 12px; right: 12px;
-      width: 28px; height: 28px;
+      top: 8px; right: 8px;
+      width: 40px; height: 40px;
       z-index: 2;
       border: none; background: transparent;
       color: var(--text-dim);
@@ -260,6 +270,14 @@
       line-height: 1.35;
     }
     .state .chev { width: 14px; height: 14px; flex-shrink: 0; color: var(--text-dim); opacity: 0.45; }
+    .state.suggested { border-color: var(--accent-soft); }
+    .state .when {
+      display: block;
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--accent);
+      letter-spacing: 0.2px;
+    }
 
     /* ─────────────────────────── Среды внутри состояния ─────────────────────────── */
     .state-head { padding: 14px 20px 4px; }
@@ -381,7 +399,7 @@
     .rec .chips { display: flex; gap: 7px; margin-top: 9px; }
     .rec .chip {
       flex: 1;
-      padding: 9px 0;
+      padding: 12px 0;
       border: 1px solid var(--line);
       border-radius: 11px;
       background: transparent;
@@ -632,7 +650,7 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     #mini .pp {
-      width: 34px; height: 34px; flex-shrink: 0;
+      width: 44px; height: 44px; flex-shrink: 0;
       border-radius: 50%;
       border: 1px solid var(--line);
       background: transparent;
@@ -805,6 +823,7 @@
       <div class="brand" id="brand">ТИШИНА</div>
       <button class="icon-btn" id="lang"></button>
     </div>
+    <div id="access-line"></div>
 
     <div id="now-card">
       <div class="breath-wrap"><div class="breath"></div></div>
@@ -863,7 +882,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
       </button>
       <div class="brand" id="brand2">ТИШИНА</div>
-      <div style="width:32px"></div>
+      <div style="width:40px"></div>
     </div>
 
     <div class="state-head">
@@ -884,7 +903,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
       </button>
       <div class="brand" id="brand3">ТИШИНА</div>
-      <div style="width:32px"></div>
+      <div style="width:40px"></div>
     </div>
 
     <div class="state-head">
@@ -991,6 +1010,39 @@
       return false;
     })();
 
+    // ═══════════════════════════════════════════════════════════
+    //  Доступ: сначала опыт, потом ценность, потом подписка.
+    //  fresh — ещё не запускал ничего: всё открыто, замков нет.
+    //  trial — 24 часа полной тишины с первого осмысленного запуска.
+    //  free  — пробный период прошёл: базовые звуки остаются.
+    //  deep  — «Глубокая тишина» оплачена (или pro=1 для тестов).
+    // ═══════════════════════════════════════════════════════════
+    const TRIAL_KEY = 'tishina_trial';
+    const TRIAL_MS = 24 * 3600 * 1000;
+    const TRIALEND_KEY = 'tishina_trialend_seen';
+
+    function trialStartTs() {
+      try {
+        const d = JSON.parse(localStorage.getItem(TRIAL_KEY));
+        if (d && d.uid === UID && d.start) return d.start;
+      } catch (e) {}
+      return null;
+    }
+
+    function accessNow() {
+      if (IS_PRO) return 'deep';
+      const ts = trialStartTs();
+      if (!ts) return 'fresh';
+      return Date.now() < ts + TRIAL_MS ? 'trial' : 'free';
+    }
+
+    // Отсчёт начинается не с открытия, а с первого запуска состояния
+    function startTrialIfNeeded() {
+      if (IS_PRO || trialStartTs()) return;
+      try { localStorage.setItem(TRIAL_KEY, JSON.stringify({ uid: UID, start: Date.now() })); } catch (e) {}
+      setTimeout(() => showToast(t('trialWelcome')), 1600);
+    }
+
     // ═══════════════════════════════════════════════════════════════
     //  Язык. Названия состояний и сред лежат рядом с данными —
     //  так их невозможно рассинхронизировать при правке.
@@ -1012,6 +1064,13 @@
         min: 'мин', cancel: 'Отмена',
         custom: 'Свой микс', customMood: 'Собрано вами', edited: 'изменено',
         rec: 'Рекомендуем', others: 'Другие атмосферы', otherStates: 'Другие состояния',
+        trialWelcome: 'Вам открыта глубокая тишина на 24 часа',
+        accessTrial: 'Глубокая тишина · сегодня доступно всё',
+        accessEnding: 'Ваша глубокая тишина заканчивается сегодня',
+        payCtx: 'Это часть глубокой тишины.',
+        payExpired: 'Вы уже знаете, как звучит ваша тишина. Пробные 24 часа закончились — всё, что вы слышали, живёт в полной версии.',
+        payCloseFree: 'Вернуться к бесплатным звукам',
+        payCtaDeep: 'Открыть глубокую тишину · 90 ★',
         start: 'Начать', noTimer: 'Без таймера', tillMorning: 'До утра',
         fitted: 'Подобрали совместимую громкость',
         tuneTitle: 'Подстроить пространство', headAtmo: 'Глубина состояния',
@@ -1039,7 +1098,7 @@
         payNote: 'Разовый платёж на 30 дней. Без автосписания — напомним, когда закончится.',
         payClose: 'Позже',
         payNoLink: 'Оплата открывается из бота — напишите ему /start',
-        hintText: 'Внутри Telegram на iPhone звук выключается, когда гаснет экран — так устроена система. <b>Откройте в браузере</b>, и он продолжит играть с заблокированным экраном.',
+        hintText: 'Похоже, система прервала звук, когда экран погас. Мы включили его снова. Если это повторится — <b>откройте в браузере</b>: там звук не прерывается.',
         hintOpen: 'Открыть в браузере', hintClose: 'Не сейчас',
         names: {
           rain:'Дождь', thunder:'Гром', waves:'Волны', wind:'Ветер', fire:'Огонь', birds:'Птицы',
@@ -1068,6 +1127,13 @@
         min: 'min', cancel: 'Cancel',
         custom: 'Your mix', customMood: 'Built by you', edited: 'edited',
         rec: 'Recommended', others: 'More atmospheres', otherStates: 'Other states',
+        trialWelcome: 'Deep silence is open for you — 24 hours',
+        accessTrial: 'Deep silence · everything is open today',
+        accessEnding: 'Your deep silence ends today',
+        payCtx: 'This is part of deep silence.',
+        payExpired: 'You already know how your silence sounds. The 24 trial hours are over — everything you heard lives in the full version.',
+        payCloseFree: 'Back to the free sounds',
+        payCtaDeep: 'Open deep silence · 90 ★',
         start: 'Start', noTimer: 'No timer', tillMorning: 'Till morning',
         fitted: 'Balanced it into the atmosphere',
         tuneTitle: 'Tune the space', headAtmo: 'Depth of state',
@@ -1095,7 +1161,7 @@
         payNote: 'One-time payment for 30 days. No auto-renewal — we will remind you when it ends.',
         payClose: 'Later',
         payNoLink: 'Payment opens from the bot — send it /start',
-        hintText: 'Inside Telegram on iPhone the sound stops when the screen turns off — that is how the system works. <b>Open in a browser</b> and it will keep playing with the screen locked.',
+        hintText: 'It looks like the system interrupted the sound when the screen went dark. We brought it back. If it happens again — <b>open in a browser</b>: playback is never interrupted there.',
         hintOpen: 'Open in browser', hintClose: 'Not now',
         names: {
           rain:'Rain', thunder:'Thunder', waves:'Waves', wind:'Wind', fire:'Fire', birds:'Birds',
@@ -1213,7 +1279,7 @@
 
     const SOUNDS = CATS.flatMap(c => c.sounds.map(s => ({ ...s, cat: c.id, file: s.id + '.mp3' })));
     const byId = id => SOUNDS.find(x => x.id === id);
-    const allowed = s => !!s.free || IS_PRO;
+    const allowed = s => !!s.free || accessNow() !== 'free';
 
     // ═══════════════════════════════════════════════════════════════
     //  Аудиопрофили — внутренний движок совместимости.
@@ -1326,14 +1392,14 @@
           { id:'storm', ru:'Ветер и гроза',    en:'Wind and Storm',mix:{ wind:46, thunder:32, rain:30 } },
         ]},
 
-      { id:'sleep', ic:'sleep', dur:[30, 60, 480],
+      { id:'sleep', ic:'sleep', dur:[30, 60], mainDur:480,
         ru:['Уснуть', 'расслабление · замедление · переход ко сну'],
         fx:{ ru:'Звук замедляется вместе с вами и гаснет сам', en:'The sound slows down with you and fades on its own' },
         en:['Sleep', 'letting go · slowing down · drifting off'],
         envs: [
-          { id:'ocean', ru:'Океан',            en:'Ocean',         mix:{ waves:52, rain:26, delta:14 }, timer:45 },
-          { id:'storm', ru:'Дождь и гром',     en:'Rain and Thunder', mix:{ rain:52, thunder:24, deepnoise:22 }, timer:45 },
-          { id:'night', ru:'Ночной поезд',     en:'Night Train',   mix:{ train:46, rain:30, window:22 }, timer:45 },
+          { id:'ocean', ru:'Океан',            en:'Ocean',         mix:{ waves:52, rain:26, delta:14 } },
+          { id:'storm', ru:'Дождь и гром',     en:'Rain and Thunder', mix:{ rain:52, thunder:24, deepnoise:22 } },
+          { id:'night', ru:'Ночной поезд',     en:'Night Train',   mix:{ train:46, rain:30, window:22 } },
         ]},
 
       { id:'place', ic:'place',
@@ -1351,6 +1417,16 @@
           { id:'raincity',ru:'Дождливый город',en:'Rainy City',     mix:{ street:38, rain:44, window:22, thunder:14 } },
         ]},
     ];
+
+    // Тональные слои — музыкальные элементы. Правило продукта: тон
+    // остаётся мягким фоном, никогда не «музыкой поверх атмосферы».
+    // Два сильных тона разом не звучат — второй приглушает первый.
+    // (Приведение самих файлов к общему тональному центру — офлайн-
+    // задача звукорежиссуры; здесь дисциплина громкостей и спектра.)
+    const TONAL = new Set(['handpan', 'didgeridoo', 'ambient', 'bowl', 'drone432', 'alpha', 'theta', 'delta']);
+    // Слои с голосами и объявлениями: их нельзя давать замаскировать
+    const VOICE = new Set(['cafe', 'crowd', 'airport', 'shop']);
+    const NOISY = new Set(['softnoise', 'deepnoise', 'ambient', 'drone432']);
 
     const stateById = id => STATES.find(s => s.id === id);
     const envFull = env => Object.keys(env.mix).every(id => { const s = byId(id); return s && allowed(s); });
@@ -1374,6 +1450,91 @@
       return !!a.canPlayType('audio/mp4; codecs="mp4a.40.2"');
     })();
 
+    const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+             || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    // ═════════════════════════════════════════════════════════════
+    //  Web Audio: слои идут через общий граф.
+    //  Каждый слой: источник → спектральная расчистка → громкость.
+    //  Дальше два пути: сухой в мастер и посыл в общий реверб —
+    //  одно «помещение» на все слои и склеивает их в пространство.
+    //  На мастере мягкий компрессор: «Полное погружение» не клипует.
+    //  Если Web Audio недоступен — тихий фолбэк на el.volume.
+    // ═════════════════════════════════════════════════════════════
+    let ctx = null, masterGain = null, wetGain = null;
+    const nodes = {};
+
+    function makeImpulse(seconds, decay) {
+      const rate = ctx.sampleRate, len = Math.floor(rate * seconds);
+      const buf = ctx.createBuffer(2, len, rate);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = buf.getChannelData(ch);
+        for (let i = 0; i < len; i++) {
+          d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+        }
+      }
+      return buf;
+    }
+
+    function ensureCtx() {
+      if (ctx) return ctx;
+      // iOS замораживает AudioContext при блокировке экрана — граф
+      // замолкает даже в Safari. Прямые <audio> играют под блокировкой.
+      // Ночной звук важнее реверба: на iOS работаем без Web Audio.
+      if (IOS) return null;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      try {
+        ctx = new AC();
+        const comp = ctx.createDynamicsCompressor();
+        comp.threshold.value = -12; comp.knee.value = 10;
+        comp.ratio.value = 6; comp.attack.value = 0.012; comp.release.value = 0.3;
+        masterGain = ctx.createGain();
+        masterGain.gain.value = 1;
+        const convolver = ctx.createConvolver();
+        convolver.buffer = makeImpulse(1.6, 2.4);
+        wetGain = ctx.createGain();
+        wetGain.gain.value = 0.10;
+        masterGain.connect(comp);
+        convolver.connect(wetGain);
+        wetGain.connect(comp);
+        comp.connect(ctx.destination);
+        ensureCtx._conv = convolver;
+        // Система прервала контекст (звонок, другое медиа) — поднимаем
+        ctx.onstatechange = () => {
+          if (ctx.state !== 'running' && !paused && anyActive()) ctx.resume().catch(() => {});
+        };
+      } catch (e) { ctx = null; }
+      return ctx;
+    }
+
+    function connectWA(id, el) {
+      if (!ctx || nodes[id]) return;
+      try {
+        const src = ctx.createMediaElementSource(el);
+        const g = ctx.createGain();
+        g.gain.value = 0;
+        let head = src;
+        // Спектральная расчистка: каждый слой уступает чужую полосу.
+        // Склоны мягкие — на слух звук остаётся естественным.
+        const band = PROF[id]?.band;
+        if (band === 'high') {
+          const f = ctx.createBiquadFilter();
+          f.type = 'highpass'; f.frequency.value = 200; f.Q.value = 0.5;
+          head.connect(f); head = f;
+        } else if (band === 'low') {
+          const f = ctx.createBiquadFilter();
+          f.type = 'lowpass'; f.frequency.value = 3400; f.Q.value = 0.5;
+          head.connect(f); head = f;
+        }
+        head.connect(g);
+        g.connect(masterGain);
+        g.connect(ensureCtx._conv);
+        el.volume = 1;
+        nodes[id] = { src, gain: g };
+      } catch (e) {}
+    }
+
     function ensureEl(id) {
       if (els[id]) return els[id];
       const s = byId(id);
@@ -1383,6 +1544,7 @@
       el.preload = 'auto';
       el.volume = 0;
       el.setAttribute('playsinline', '');
+      if (ensureCtx()) connectWA(id, el);
       el.addEventListener('playing', () => setCardLoading(id, false));
       el.addEventListener('canplaythrough', () => setCardLoading(id, false));
       el.addEventListener('error', () => {
@@ -1391,7 +1553,7 @@
           if (state[id].active) el.play().catch(() => {});
           return;
         }
-        setCardLoading(id, false); showToast(t('loadFail'));
+        setCardLoading(id, false); haptics.error(); showToast(t('loadFail'));
       });
       els[id] = el;
       return el;
@@ -1400,7 +1562,19 @@
     function fadeTo(id, target, seconds, onDone) {
       const el = els[id];
       if (!el) return;
-      clearInterval(fades[id]);
+      clearInterval(fades[id]); delete fades[id];
+      clearTimeout(fadeTo['_d' + id]);
+      if (nodes[id]) {
+        // Web Audio: сэмпл-точный ramp вместо шагов таймера
+        const g = nodes[id].gain.gain, now = ctx.currentTime;
+        try {
+          g.cancelScheduledValues(now);
+          g.setValueAtTime(g.value, now);
+          g.linearRampToValueAtTime(Math.max(0, Math.min(1, target)), now + Math.max(0.02, seconds));
+        } catch (e) {}
+        if (onDone) fadeTo['_d' + id] = setTimeout(onDone, seconds * 1000 + 30);
+        return;
+      }
       const from = el.volume, steps = Math.max(1, Math.round(seconds * 20));
       let i = 0;
       fades[id] = setInterval(() => {
@@ -1410,15 +1584,18 @@
       }, seconds * 1000 / steps);
     }
 
+    // Итоговая громкость слоя: в Web Audio мастер-фейды делает masterGain
+    const volTarget = id => state[id].volume * (ctx ? 1 : masterVol);
+
     async function startSound(id, fade = FADE) {
       const el = ensureEl(id);
-      scheduleHint();
       setCardLoading(id, true);
       try {
-        el.volume = 0;
+        if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+        if (!nodes[id]) el.volume = 0;
         await el.play();
         setCardLoading(id, false);
-        fadeTo(id, state[id].volume * masterVol, fade);
+        fadeTo(id, volTarget(id), fade);
       } catch (e) { setCardLoading(id, false); }
       updateMediaSession();
     }
@@ -1432,10 +1609,20 @@
 
     function setVolume(id, v, ramp = 0.08) {
       state[id].volume = v;
-      if (els[id] && !els[id].paused) fadeTo(id, v * masterVol, ramp);
+      if (els[id] && !els[id].paused) fadeTo(id, volTarget(id), ramp);
     }
 
     function setMasterVolume(v, seconds) {
+      if (ctx && masterGain) {
+        masterVol = v;
+        const g = masterGain.gain, now = ctx.currentTime;
+        try {
+          g.cancelScheduledValues(now);
+          g.setValueAtTime(g.value, now);
+          g.linearRampToValueAtTime(Math.max(0.0001, v), now + Math.max(0.05, seconds));
+        } catch (e) {}
+        return;
+      }
       const from = masterVol, steps = Math.max(1, Math.round(seconds * 10));
       let i = 0;
       clearInterval(setMasterVolume._t);
@@ -1481,7 +1668,9 @@
       const m = atmo.level
         * (1 + 0.45 * atmo.warm * p.warm)
         * (1 + 0.45 * atmo.alive * p.alive);
-      return Math.max(0.15, Math.min(1.7, m));
+      // Тональные слои не разгоняются «Полным погружением»:
+      // громкий тон превращает атмосферу в музыку
+      return Math.max(0.15, Math.min(TONAL.has(id) ? 1.1 : 1.7, m));
     }
 
     function applyAtmo(ramp = 0.6) {
@@ -1571,17 +1760,77 @@
     // ═══════════════════════════════════════════════════════════════
     const statesBox = document.getElementById('states');
 
-    STATES.forEach(st => {
-      const b = document.createElement('button');
-      b.className = 'state';
-      b.dataset.st = st.id;
-      b.innerHTML =
-        '<span class="ic">' + SIC[st.ic] + '</span>' +
-        '<span class="txt"><span class="nm"></span><span class="ds"></span></span>' +
-        '<span class="chev">' + CHEV + '</span>';
-      b.addEventListener('click', () => openState(st));
-      statesBox.appendChild(b);
-    });
+    // Который час — такое и предложение. Приложение угадывает,
+    // а не заставляет выбирать даже состояние.
+    function suggestNow() {
+      const hr = new Date().getHours();
+      if (hr >= 22 || hr < 5) return { id: 'sleep',  ru: 'уже поздно — поможем уснуть',      en: 'it is late — we will help you sleep' };
+      if (hr >= 5 && hr < 9)  return { id: 'breath', ru: 'утро — мягко разбудить тело',      en: 'morning — gently wake the body' };
+      if (hr >= 9 && hr < 17) return { id: 'focus',  ru: 'самое время для глубокой работы',  en: 'the right time for deep work' };
+      if (hr >= 17 && hr < 20) return { id: 'unwind', ru: 'вечер — можно выдохнуть',         en: 'evening — time to exhale' };
+      return { id: 'read', ru: 'тихий вечер для чтения', en: 'a quiet evening to read' };
+    }
+
+    function renderStates() {
+      statesBox.innerHTML = '';
+      const sug = suggestNow();
+      const order = [...STATES].sort((a, b) =>
+        (a.id === sug.id ? -1 : 0) - (b.id === sug.id ? -1 : 0));
+      order.forEach(st => {
+        const b = document.createElement('button');
+        b.className = 'state' + (st.id === sug.id ? ' suggested' : '');
+        b.dataset.st = st.id;
+        b.innerHTML =
+          '<span class="ic">' + SIC[st.ic] + '</span>' +
+          '<span class="txt"><span class="nm"></span><span class="ds"></span>' +
+          (st.id === sug.id ? '<span class="when"></span>' : '') + '</span>' +
+          '<span class="chev">' + CHEV + '</span>';
+        b.querySelector('.nm').textContent = st[lang][0];
+        b.querySelector('.ds').textContent = st[lang][1];
+        if (st.id === sug.id) b.querySelector('.when').textContent = sug[lang];
+        b.addEventListener('click', () => { hap('light'); openState(st, true); });
+        statesBox.appendChild(b);
+      });
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    //  Хаптика. Правило: подтверждение, не украшение.
+    //  — вне Telegram все вызовы тихо превращаются в no-op;
+    //  — глобальный зазор 80 мс: два события подряд не жужжат дважды;
+    //  — в тихих состояниях (сон, медитация, расслабление, дыхание)
+    //    сила автоматически на ступень мягче;
+    //  — слайдеры троттлятся отдельно (не чаще раза в 90 мс);
+    //  — автоматика (фейды, дрейф, таймер, восстановление) не вибрирует
+    //    никогда: вызовы стоят только в обработчиках касаний.
+    // ═════════════════════════════════════════════════════════════
+    const haptics = (() => {
+      const hf = () => TG?.HapticFeedback;
+      const QUIET = new Set(['sleep', 'meditate', 'unwind', 'breath']);
+      const quiet = () => !!(current && !current.name && QUIET.has(current.st));
+      let last = 0;
+      function fire(fn) {
+        const now = Date.now();
+        if (now - last < 80) return;
+        last = now;
+        try { fn(hf()); } catch (e) {}
+      }
+      let slLast = 0;
+      return {
+        selection: () => fire(x => x?.selectionChanged()),
+        light:  () => fire(x => x?.impactOccurred(quiet() ? 'soft' : 'light')),
+        medium: () => fire(x => x?.impactOccurred(quiet() ? 'light' : 'medium')),
+        success:() => fire(x => x?.notificationOccurred('success')),
+        error:  () => fire(x => x?.notificationOccurred('error')),
+        slider: v => {
+          const now = Date.now();
+          const edge = v !== undefined && (v <= 0 || v >= 100);
+          if (!edge && now - slLast < 90) return;
+          slLast = now;
+          try { edge ? hf()?.impactOccurred(quiet() ? 'soft' : 'light') : hf()?.selectionChanged(); } catch (e) {}
+        },
+      };
+    })();
+    const hap = kind => kind === 'medium' ? haptics.medium() : kind === 'select' ? haptics.selection() : haptics.light();
 
     // ═══════════════════════════════════════════════════════════════
     //  Экран 2. Среды выбранного состояния
@@ -1589,8 +1838,9 @@
     const envsBox = document.getElementById('envs');
 
     const recBox = document.getElementById('rec-box');
+    let recBtn = null, recEnvRef = null;
 
-    function openState(st) {
+    function openState(st, autoplay) {
       openedState = st.id;
       document.getElementById('st-title').textContent = st[lang][0];
       document.getElementById('st-mood').textContent = st[lang][1];
@@ -1615,12 +1865,28 @@
         '<button class="start">' + t('start') + '</button>' + chips;
       card.querySelector('.nm').textContent = rec[lang];
       card.querySelector('.ds').textContent = envDesc(rec);
-      card.querySelector('.start').addEventListener('click', () => playEnv(st, rec, recFull));
+      recBtn = card.querySelector('.start');
+      recEnvRef = { st, env: rec };
+      recBtn.addEventListener('click', () => {
+        // Кнопка живёт вместе с состоянием: Начать → Пауза → Продолжить
+        if (current && !current.name && current.st === st.id && current.env === rec.id && anyActive()) {
+          hap('light');
+          paused ? resumeAll() : pauseAll();
+          return;
+        }
+        playEnv(st, rec, recFull, true);
+        if (st.mainDur) setTimer(st.mainDur);
+        refreshAll();
+      });
       card.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
         const d = parseInt(c.dataset.d, 10);
-        playEnv(st, rec, recFull);
-        if (d > 0) setTimer(d); else cancelTimer();
-        refreshNow();
+        // Если рекомендация уже звучит — чип просто ставит таймер,
+        // а не перезапускает и тем более не останавливает атмосферу
+        const same = current && !current.name && current.st === st.id && current.env === rec.id && anyActive();
+        if (!same) playEnv(st, rec, recFull, true);
+        else if (paused) resumeAll();
+        if (d > 0) { setTimer(d); haptics.success(); } else cancelTimer();
+        refreshAll();
       }));
       recBox.appendChild(card);
 
@@ -1643,9 +1909,27 @@
         envsBox.appendChild(b);
       });
       showView('state');
+
+      // Один тап — и состояние уже звучит. Настройка потом, если захочется.
+      if (autoplay && !(current && !current.name && current.st === st.id && anyActive())) {
+        playEnv(st, rec, recFull, true);
+        if (st.mainDur) setTimer(st.mainDur);
+        refreshAll();
+      }
+      refreshRecBtn();
     }
 
-    function playEnv(st, env, full) {
+    function refreshRecBtn() {
+      if (!recBtn || !recEnvRef) return;
+      const { st, env } = recEnvRef;
+      const here = current && !current.name && current.st === st.id && current.env === env.id && anyActive();
+      if (here) recBtn.textContent = paused ? t('resume') : t('pause');
+      else recBtn.textContent = t('start') + (st.mainDur ? ' · ' + t('tillMorning').toLowerCase() : '');
+    }
+
+    function playEnv(st, env, full, stay) {
+      hap('medium');
+      startTrialIfNeeded();
       // Уже играет эта же среда — второй тап останавливает
       if (current && current.st === st.id && current.env === env.id && !paused) { stopAll(); showView('now'); return; }
       current = { st: st.id, env: env.id };
@@ -1656,10 +1940,10 @@
       clearMixHighlight();
       saveLast();
       refreshAll();
-      showView('now');
+      if (!stay) showView('now');
       if (!full && !IS_PRO) {
         // Сначала человек слышит урезанную версию и понимает, чего не хватает
-        setTimeout(() => { if (current && current.st === st.id && current.env === env.id) showPaywall(); }, 2500);
+        setTimeout(() => { if (current && current.st === st.id && current.env === env.id) showPaywall('lock'); }, 2500);
       }
     }
 
@@ -1717,8 +2001,8 @@
     }
     setInterval(() => { updateClock(); if (mini.classList.contains('on')) refreshMini(); }, 1000);
 
-    btnPP.addEventListener('click', () => { paused ? resumeAll() : pauseAll(); });
-    document.getElementById('now-stop').addEventListener('click', stopAll);
+    btnPP.addEventListener('click', () => { hap('light'); paused ? resumeAll() : pauseAll(); });
+    document.getElementById('now-stop').addEventListener('click', () => { haptics.medium(); stopAll(); });
     btnTune.addEventListener('click', openTune);
 
     function pauseAll() {
@@ -1772,7 +2056,7 @@
       showView('now');
     });
 
-    function refreshAll() { refreshNow(); refreshMini(); refreshTunePP(); renderLayers(); syncCards(); }
+    function refreshAll() { refreshNow(); refreshMini(); refreshTunePP(); refreshRecBtn(); renderLayers(); syncCards(); }
 
     // ═══════════════════════════════════════════════════════════════
     //  Экран 3. Настройка среды
@@ -1806,7 +2090,7 @@
 
     // Главное действие экрана — продолжить или поставить на паузу
     const tunePP = document.getElementById('tune-pp');
-    tunePP.addEventListener('click', () => { paused ? resumeAll() : pauseAll(); });
+    tunePP.addEventListener('click', () => { hap('light'); paused ? resumeAll() : pauseAll(); });
     function refreshTunePP() {
       tunePP.textContent = paused ? t('resume') : t('pause');
       tunePP.classList.toggle('paused', paused);
@@ -1816,6 +2100,7 @@
     // ── Быстрые контролы атмосферы ──
     const lvBtns = [document.getElementById('lv-soft'), document.getElementById('lv-mid'), document.getElementById('lv-rich')];
     lvBtns.forEach(b => b.addEventListener('click', () => {
+      haptics.selection();
       atmo.level = parseFloat(b.dataset.lv);
       lvBtns.forEach(x => x.classList.toggle('on', x === b));
       if (paused) resumeAll();
@@ -1828,6 +2113,7 @@
     function bindAtmoSlider(sl, key) {
       sl.addEventListener('input', e => {
         const v = parseInt(e.target.value, 10);
+        haptics.slider((v + 100) / 2);
         e.target.style.setProperty('--val', ((v + 100) / 2) + '%');
         atmo[key] = v / 100;
         if (paused) resumeAll();
@@ -1851,6 +2137,7 @@
     const toggleDetail = document.getElementById('toggle-detail');
     let detailOpen = false;
     toggleDetail.addEventListener('click', () => {
+      haptics.selection();
       detailOpen = !detailOpen;
       detailWrap.style.display = detailOpen ? '' : 'none';
       toggleDetail.classList.toggle('open', detailOpen);
@@ -1874,6 +2161,7 @@
         const sl = row.querySelector('input');
         sl.addEventListener('input', e => {
           const val = e.target.value;
+          haptics.slider(+val);
           e.target.style.setProperty('--val', val + '%');
           // Пользователь задал итоговую громкость — пересчитываем базу,
           // чтобы быстрые контролы не перетёрли его выбор
@@ -1899,7 +2187,7 @@
       const tab = document.createElement('button');
       tab.className = 'tab' + (i === 0 ? ' active' : '');
       tab.dataset.cat = c.id;
-      tab.addEventListener('click', () => showCat(i));
+      tab.addEventListener('click', () => { haptics.selection(); showCat(i); });
       tabsBox.appendChild(tab);
 
       const pane = document.createElement('div');
@@ -1944,7 +2232,8 @@
 
     function toggleSound(id) {
       const s = byId(id);
-      if (!allowed(s)) { showPaywall(); return; }
+      if (!allowed(s)) { showPaywall('lock'); return; }
+      haptics.light();
       const st = state[id];
       st.active = !st.active;
       if (st.active) {
@@ -1954,8 +2243,22 @@
         const band = PROF[id]?.band;
         const busy = SOUNDS.filter(x => x.id !== id && state[x.id].active &&
           (PROF[x.id]?.band === band || PROF[x.id]?.band === 'broad' || band === 'broad')).length;
-        const fit = Math.max(0.45, 1 - 0.16 * busy);
-        const v = Math.max(0.15, Math.min(1, s.def * fit));
+        let fit = Math.max(0.45, 1 - 0.16 * busy);
+        // Второй тон входит тише и приглушает первый: одна атмосфера,
+        // а не два инструмента, спорящих между собой
+        if (TONAL.has(id)) {
+          const tActive = SOUNDS.filter(x => x.id !== id && state[x.id].active && TONAL.has(x.id));
+          if (tActive.length) {
+            fit *= 0.6;
+            tActive.forEach(x => {
+              baseVol[x.id] = (baseVol[x.id] ?? state[x.id].volume) * 0.7;
+              setVolume(x.id, Math.min(1, baseVol[x.id] * atmoMult(x.id)), 1.2);
+            });
+          }
+        }
+        // Шумовые ковры не должны глушить голоса и объявления
+        if (NOISY.has(id) && SOUNDS.some(x => state[x.id].active && VOICE.has(x.id))) fit *= 0.85;
+        const v = Math.max(0.12, Math.min(1, s.def * fit));
         baseVol[id] = v;
         state[id].volume = Math.min(1, v * atmoMult(id));
         if (fit < 0.85) showToast(t('fitted'));
@@ -2015,11 +2318,14 @@
         b.addEventListener('click', e => {
           if (e.target.classList.contains('del')) {
             e.stopPropagation();
+            haptics.light();
             const s = loadStore(); s.presets.splice(i, 1); saveStore(s);
             renderMixes(); showToast(t('deleted')); return;
           }
-          if (activeMix === i) { stopAll(); renderMixes(); return; }
+          if (activeMix === i) { haptics.medium(); stopAll(); renderMixes(); return; }
+          haptics.medium();
           activeMix = i;
+          startTrialIfNeeded();
           current = { name: p.name };
           startedAt = Date.now();
           cancelTimer();
@@ -2053,6 +2359,7 @@
     nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSave(); });
 
     function doSave() {
+      haptics.success();
       const name = nameInput.value.trim() || (lang === 'ru' ? 'Мой микс' : 'My mix');
       const s = loadStore();
       s.presets.push({ name, mix: currentMix() });
@@ -2087,7 +2394,8 @@
       o.addEventListener('click', () => {
         const m = parseInt(o.dataset.min, 10);
         timerMenu.classList.remove('open');
-        if (m === 0) cancelTimer(); else setTimer(m);
+        if (m === 0) { haptics.light(); cancelTimer(); }
+        else { setTimer(m); haptics.success(); }
         refreshNow();
       });
     });
@@ -2150,10 +2458,11 @@
       navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
       if (playing) {
         const l = label();
+        // На локскрине: «Океан — Тишина — Уснуть»
         navigator.mediaSession.metadata = new MediaMetadata({
           title: l.sub || l.top || t('brand'),
-          artist: l.top || t('brand'),
-          album: t('brand')
+          artist: t('brand'),
+          album: l.top || t('brand')
         });
         try {
           navigator.mediaSession.setActionHandler('pause', pauseAll);
@@ -2165,10 +2474,15 @@
 
     function wake() {
       if (paused) return;
+      if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
+      let killed = 0;
       SOUNDS.forEach(s => {
         const el = els[s.id];
-        if (state[s.id].active && el && el.paused) el.play().catch(() => {});
+        if (state[s.id].active && el && el.paused) { killed++; el.play().catch(() => {}); }
       });
+      // Система оборвала фон — сами подняли звук и один раз объясняем,
+      // где он не прерывается. Пока фон живёт, подсказки нет.
+      if (killed > 0) scheduleHint(1500);
     }
     document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
     window.addEventListener('focus', wake);
@@ -2183,11 +2497,16 @@
     const HINT_KEY = 'tishina_hint_bg';
     const hint = document.getElementById('hint');
 
-    let hintTimer = null;
-    function scheduleHint() {
-      if (hintTimer || !isIOS || !inTelegram) return;
+    let hintTimer = null, hintDelay = Infinity;
+    function scheduleHint(delay = 20000) {
+      if (!isIOS || !inTelegram) return;
       try { if (localStorage.getItem(HINT_KEY)) return; } catch (e) {}
-      hintTimer = setTimeout(() => { if (anyActive()) hint.classList.add('show'); }, 20000);
+      if (hintTimer) {
+        if (delay >= hintDelay) return;
+        clearTimeout(hintTimer);
+      }
+      hintDelay = delay;
+      hintTimer = setTimeout(() => { if (anyActive()) hint.classList.add('show'); }, delay);
     }
     function hideHint(forever) {
       hint.classList.remove('show');
@@ -2212,7 +2531,7 @@
     const INVOICE = QS.get('inv') || '';
     const payBox = document.getElementById('pay');
 
-    function showPaywall() {
+    function showPaywall(mode) {
       const list = document.getElementById('pay-list');
       list.innerHTML = '';
       t('payRows').forEach(([head, sub]) => {
@@ -2227,10 +2546,16 @@
         list.appendChild(row);
       });
       document.getElementById('pay-title').textContent = t('payTitle');
-      document.getElementById('pay-sub').textContent   = t('paySub');
-      document.getElementById('pay-cta').textContent   = t('payCta');
+      // Язык продукта, не тарифа: контекст замка или мягкое окончание пробного
+      document.getElementById('pay-sub').textContent =
+        mode === 'expired' ? t('payExpired')
+        : mode === 'lock' ? t('payCtx') + ' ' + t('paySub')
+        : t('paySub');
+      document.getElementById('pay-cta').textContent =
+        accessNow() === 'free' ? t('payCtaDeep') : t('payCta');
       document.getElementById('pay-note').textContent  = t('payNote');
-      document.getElementById('pay-close').textContent = t('payClose');
+      document.getElementById('pay-close').textContent =
+        accessNow() === 'free' ? t('payCloseFree') : t('payClose');
       payBox.classList.add('open');
     }
 
@@ -2277,11 +2602,7 @@
       document.getElementById('alive-r').textContent = t('aliveR');
       toggleDetail.textContent = detailOpen ? t('detailClose') : t('detailOpen');
 
-      statesBox.querySelectorAll('.state').forEach(b => {
-        const st = stateById(b.dataset.st);
-        b.querySelector('.nm').textContent = st[lang][0];
-        b.querySelector('.ds').textContent = st[lang][1];
-      });
+      renderStates();
 
       tabsBox.querySelectorAll('.tab').forEach(el => { el.textContent = t(el.dataset.cat); });
       document.querySelectorAll('[data-name]').forEach(el => { el.textContent = nm(el.dataset.name); });
@@ -2310,6 +2631,7 @@
     }
 
     document.getElementById('lang').addEventListener('click', () => {
+      haptics.selection();
       lang = lang === 'ru' ? 'en' : 'ru';
       try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
       applyLang();
@@ -2369,9 +2691,51 @@
       showToast(t('resumeHint'));
     })();
 
+    // ── Статус доступа: тихо, без обратного отсчёта ──
+    function refreshAccessLine() {
+      const el = document.getElementById('access-line');
+      const a = accessNow();
+      if (a !== 'trial') { el.classList.remove('on'); return; }
+      const left = trialStartTs() + TRIAL_MS - Date.now();
+      el.textContent = left < 6 * 3600000 ? t('accessEnding') : t('accessTrial');
+      el.classList.add('on');
+    }
+    setInterval(refreshAccessLine, 60000);
+
     applyLang();
     renderMixes();
     showView('now');
+    refreshAccessLine();
+
+    // Пробная тишина закончилась — говорим об этом один раз, мягко,
+    // и человек остаётся с бесплатными звуками, а не перед стеной
+    if (accessNow() === 'free') {
+      let seen = null;
+      try { seen = localStorage.getItem(TRIALEND_KEY); } catch (e) {}
+      if (!seen) {
+        try { localStorage.setItem(TRIALEND_KEY, '1'); } catch (e) {}
+        setTimeout(() => showPaywall('expired'), 1200);
+      }
+    }
+
+    // ── Dev-панель: ?dev=1 — новый / trial / истёк / deep ──
+    if (QS.get('dev') === '1') {
+      const dv = document.createElement('div');
+      dv.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:900;display:flex;gap:4px;opacity:0.85';
+      [
+        ['new',   () => { localStorage.removeItem(TRIAL_KEY); localStorage.removeItem(TRIALEND_KEY); localStorage.removeItem(PRO_KEY); }],
+        ['trial', () => { localStorage.setItem(TRIAL_KEY, JSON.stringify({ uid: UID, start: Date.now() })); localStorage.removeItem(PRO_KEY); }],
+        ['ended', () => { localStorage.setItem(TRIAL_KEY, JSON.stringify({ uid: UID, start: Date.now() - TRIAL_MS - 1000 })); localStorage.removeItem(TRIALEND_KEY); localStorage.removeItem(PRO_KEY); }],
+        ['deep',  () => { localStorage.setItem(PRO_KEY, String(UID)); }],
+      ].forEach(([nmx, fn]) => {
+        const bb = document.createElement('button');
+        bb.textContent = nmx;
+        bb.style.cssText = 'padding:6px 10px;font-size:11px;background:#222;color:#d0a94e;border:1px solid #444;border-radius:8px';
+        bb.addEventListener('click', () => { fn(); location.href = location.pathname + '?dev=1&lang=' + lang; });
+        dv.appendChild(bb);
+      });
+      document.body.appendChild(dv);
+    }
 
   })();
   </script>
