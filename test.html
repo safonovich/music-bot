@@ -201,20 +201,177 @@
     .btn:disabled { opacity: 0.35; cursor: default; }
 
     /* Пустое состояние — вопрос вместо каталога */
-    #now-empty { display: none; padding: 30px 22px 20px; text-align: center; }
+    #now-empty { display: none; padding: 22px 22px 4px; text-align: center; }
     #now-empty.on { display: block; }
     #now-empty .ask {
-      font-size: 22px;
+      margin-top: 26px;
+      font-size: 16px;
       color: var(--text);
       line-height: 1.3;
       font-weight: 400;
     }
     #now-empty .sub {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    /* ── Приветствие: у приложения есть мягкое мнение ── */
+    .greet { text-align: center; }
+    .greet .hi {
+      font-size: 11px;
+      letter-spacing: 2.4px;
+      text-transform: uppercase;
+      color: var(--accent);
+      opacity: 0.85;
+    }
+    .greet .q {
+      margin-top: 12px;
+      font-size: 21px;
+      line-height: 1.32;
+      color: var(--text);
+      font-weight: 400;
+    }
+    .greet .line {
       margin-top: 8px;
       font-size: 12.5px;
       color: var(--text-dim);
       line-height: 1.5;
     }
+    .greet-go {
+      width: 100%;
+      margin-top: 20px;
+      padding: 15px 14px;
+      border: none;
+      border-radius: 14px;
+      background: var(--accent);
+      color: #000;
+      font-family: inherit;
+      font-size: 14.5px; font-weight: 600;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 9px;
+      transition: transform 0.1s;
+    }
+    .greet-go:active { transform: scale(0.98); }
+    .greet-go .ic { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.8; }
+    .greet-go .ic svg { width: 100%; height: 100%; }
+    .greet-go .sub2 { font-weight: 500; opacity: 0.6; }
+    .greet-alt {
+      margin-top: 13px;
+      padding: 7px 2px;
+      border: none;
+      background: transparent;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 12.5px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--line);
+    }
+    .greet-alt:active { color: var(--accent); }
+
+    /* ── Возвращение: «продолжить вашу последнюю Тишину» ── */
+    #resume-card {
+      display: none;
+      margin: 26px 0 0;
+      padding: 17px 17px 15px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--card);
+      text-align: left;
+    }
+    #resume-card.on { display: block; }
+    #resume-card .tag {
+      font-size: 10px;
+      letter-spacing: 2.2px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    #resume-card .nm { margin-top: 9px; font-size: 16px; font-weight: 500; color: var(--text); }
+    #resume-card .ds { margin-top: 4px; font-size: 11.5px; color: var(--text-dim); line-height: 1.4; }
+    #resume-card .start {
+      width: 100%;
+      margin-top: 14px;
+      padding: 12px 0;
+      border: 1px solid var(--accent-soft);
+      border-radius: 12px;
+      background: transparent;
+      color: var(--accent);
+      font-family: inherit;
+      font-size: 13.5px; font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.1s, background 0.2s;
+    }
+    #resume-card .start:active { transform: scale(0.98); background: var(--card-active); }
+
+    /* ── Тихая строка про постоянство. Не достижение, а факт ── */
+    #streak {
+      display: none;
+      margin-top: 20px;
+      font-size: 11.5px;
+      letter-spacing: 0.3px;
+      color: var(--text-dim);
+      opacity: 0.8;
+    }
+    #streak.on { display: block; }
+
+    /* ══ НОЧЬ. Свет — тоже звук, только для глаз ══
+       Меняем не яркость через filter (он ломает position:fixed),
+       а саму палитру: комната просто становится темнее. */
+    body.night {
+      --accent: #8b7237;
+      --accent-soft: rgba(139, 114, 55, 0.16);
+      --text: #a49d8e;
+      --text-dim: #57524a;
+      --card: #070605;
+      --card-active: #0d0a07;
+      --line: #161310;
+    }
+    body.night .breath { animation-duration: 17s; opacity: 0.35; }
+    body.night .env.now { box-shadow: none; }
+
+    #night-veil {
+      position: fixed; inset: 0; z-index: 850;
+      background: #000;
+      opacity: 0; pointer-events: none;
+      transition: opacity 4s ease;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 40px;
+    }
+    body.night-deep #night-veil { opacity: 0.99; pointer-events: auto; }
+    #night-veil .nv-nm { font-size: 15px; color: #8a8478; letter-spacing: 0.4px; }
+    #night-veil .nv-ds { margin-top: 8px; font-size: 12px; color: #4a463f; }
+    #night-veil .nv-hint {
+      margin-top: 30px;
+      font-size: 10px; letter-spacing: 1.8px; text-transform: uppercase;
+      color: #2e2b27;
+    }
+
+    /* ── Моя Тишина ── */
+    .me-total { padding: 2px 20px 0; font-size: 12.5px; color: var(--text-dim); line-height: 1.5; }
+    .me-bars { padding: 4px 18px 0; display: flex; flex-direction: column; gap: 13px; }
+    .me-row .top {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+      font-size: 13.5px; color: var(--text);
+    }
+    .me-row .top .val { font-size: 12px; color: var(--text-dim); flex-shrink: 0; }
+    .me-row .bar {
+      margin-top: 7px;
+      height: 3px;
+      border-radius: 2px;
+      background: var(--line);
+      overflow: hidden;
+    }
+    .me-row .bar i {
+      display: block;
+      height: 100%;
+      border-radius: 2px;
+      background: var(--accent);
+      opacity: 0.75;
+    }
+    .me-empty { padding: 8px 20px 0; font-size: 12.5px; color: var(--text-dim); line-height: 1.55; }
+    .me-note { padding: 22px 20px 0; font-size: 11.5px; color: var(--text-dim); opacity: 0.8; line-height: 1.5; }
 
     .section-head {
       padding: 20px 18px 8px;
@@ -793,6 +950,38 @@
       font-size: 12.5px; font-family: inherit; cursor: pointer;
     }
 
+    /* ── Второй путь: не заплатить, а позвать ── */
+    .ref-btn {
+      display: none;
+      width: 100%;
+      margin-top: 12px;
+      padding: 13px 0;
+      border: 1px solid var(--accent-soft);
+      border-radius: 13px;
+      background: transparent;
+      color: var(--accent);
+      font-size: 13.5px; font-weight: 600; font-family: inherit;
+      cursor: pointer;
+      transition: transform 0.1s, background 0.2s;
+    }
+    .ref-btn.on { display: block; }
+    .ref-btn:active { transform: scale(0.98); background: var(--card-active); }
+    .ref-line { text-align: center; font-size: 11px; color: var(--text-dim); margin-top: 8px; line-height: 1.4; }
+    .ref-line.hide { display: none; }
+
+    #me-ref {
+      display: none;
+      margin: 24px 18px 0;
+      padding: 17px 17px 15px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--card);
+    }
+    #me-ref.on { display: block; }
+    #me-ref .tag { font-size: 10px; letter-spacing: 2.2px; text-transform: uppercase; color: var(--text-dim); }
+    #me-ref .ds { margin-top: 9px; font-size: 12.5px; color: var(--text-dim); line-height: 1.5; }
+    #me-ref .ref-btn { margin-top: 13px; }
+
     #toast {
       position: fixed;
       bottom: calc(var(--bottom) + 86px);
@@ -820,6 +1009,9 @@
   <!-- ══════════════ Экран 1. Сейчас ══════════════ -->
   <section class="view on" id="v-now">
     <div class="topbar">
+      <button class="icon-btn" id="me-btn" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19v-5M9.3 19V9M14.7 19v-7M20 19V6"/></svg>
+      </button>
       <div class="brand" id="brand">ТИШИНА</div>
       <button class="icon-btn" id="lang"></button>
     </div>
@@ -854,6 +1046,23 @@
     </div>
 
     <div id="now-empty">
+      <div class="greet">
+        <div class="hi" id="greet-hi"></div>
+        <div class="q" id="greet-q"></div>
+        <div class="line" id="greet-line"></div>
+        <button class="greet-go" id="greet-go"></button>
+        <button class="greet-alt" id="greet-alt"></button>
+      </div>
+
+      <div id="resume-card">
+        <div class="tag" id="resume-tag"></div>
+        <div class="nm" id="resume-nm"></div>
+        <div class="ds" id="resume-ds"></div>
+        <button class="start" id="resume-go"></button>
+      </div>
+
+      <div id="streak"></div>
+
       <div class="ask" id="ask"></div>
       <div class="sub" id="ask-sub"></div>
     </div>
@@ -955,6 +1164,38 @@
     <div class="pad-mini"></div>
   </section>
 
+  <!-- ══════════════ Экран 4. Моя Тишина ══════════════ -->
+  <section class="view" id="v-me">
+    <div class="topbar">
+      <button class="icon-btn back" data-back="now">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="brand" id="brand4">ТИШИНА</div>
+      <div style="width:40px"></div>
+    </div>
+
+    <div class="state-head">
+      <div class="h1" id="me-title"></div>
+      <div class="mood" id="me-sub"></div>
+    </div>
+
+    <div class="section-head" id="head-week"></div>
+    <div class="me-bars" id="me-bars"></div>
+    <div class="me-empty" id="me-empty"></div>
+
+    <div class="section-head" id="head-fav" style="display:none"></div>
+    <div class="envs" id="me-fav"></div>
+
+    <div id="me-ref">
+      <div class="tag" id="me-ref-tag"></div>
+      <div class="ds" id="me-ref-ds"></div>
+      <button class="ref-btn on" id="me-ref-btn"></button>
+    </div>
+
+    <div class="me-note" id="me-note"></div>
+    <div class="pad-mini"></div>
+  </section>
+
   <!-- ══════════════ Мини-плеер ══════════════ -->
   <div id="mini">
     <span class="mini-dot" id="mini-dot"></span>
@@ -981,8 +1222,16 @@
       <div class="pay-list" id="pay-list"></div>
       <button class="pay-cta" id="pay-cta"></button>
       <div class="pay-note" id="pay-note"></div>
+      <button class="ref-btn" id="pay-ref"></button>
+      <div class="ref-line hide" id="pay-ref-note"></div>
       <button class="pay-close" id="pay-close"></button>
     </div>
+  </div>
+
+  <div id="night-veil">
+    <div class="nv-nm"></div>
+    <div class="nv-ds"></div>
+    <div class="nv-hint"></div>
   </div>
 
   <div id="toast"></div>
@@ -1058,6 +1307,26 @@
         headAdd: 'Добавить элемент',
         ask: 'Куда вы хотите попасть?',
         askSub: 'Выберите состояние — среда включится сама.\nНастроить можно потом.',
+        or: 'или',
+        resumeTag: 'Продолжить вашу последнюю Тишину',
+        resumeGo: 'Продолжить',
+        dayToday: 'Сегодня', dayYest: 'Вчера', dayAgo: 'дн. назад',
+        hourShort: 'ч', minShort: 'мин',
+        left: 'осталось', tapToWake: 'коснитесь, чтобы вернуть экран',
+        refCta: 'Пригласить друга',
+        refLine: 'Другу откроется 7 дней, вам — 14',
+        refTag: 'Поделиться Тишиной',
+        refDs: 'Если она пригодилась кому-то из ваших — отправьте ссылку. Другу откроется 7 дней целиком, вам — ещё 14.',
+        refShare: 'Нашёл спокойную вещь — Тишина.\n\nВыбираешь не звук, а состояние: сосредоточиться, читать, уснуть, замедлиться — и среда собирается сама. Живёт прямо в Telegram, ставить ничего не нужно.\n\nПо этой ссылке тебе откроется 7 дней целиком.',
+        refCopied: '✓ Ссылка скопирована — отправьте её другу',
+        meTitle: 'Моя Тишина',
+        meSub: 'Где вы бываете и сколько',
+        headWeek: 'На этой неделе',
+        headFav: 'Любимые атмосферы',
+        meEmpty: 'Здесь появится ваша неделя — когда наберётся несколько состояний.',
+        meTotal: 'Всего за неделю',
+        meNote: 'История живёт только на вашем устройстве. Мы её никуда не отправляем.',
+        streak: ['Вы здесь %n день подряд', 'Вы здесь %n дня подряд', 'Вы здесь %n дней подряд'],
         nature: 'Природа', city: 'Город', transport: 'Транспорт', tones: 'Тона',
         play: 'Включить', pause: 'Пауза', resume: 'Продолжить', stop: 'Стоп',
         timer: 'Таймер', tune: 'Настроить', animate: 'Оживить', save: 'Сохранить', share: 'Поделиться',
@@ -1092,7 +1361,7 @@
           ['8 состояний и 28 сред', 'От глубокой работы до вечера у огня'],
           ['Утро и вечер по расписанию', 'Бот напомнит начать и закончить день'],
           ['32 звука и свои миксы', 'Собрать своё и сохранить'],
-          ['Таймер сна', 'Плавно затихает и выключается'],
+          ['Ночь целиком', 'Звук ведёт ко сну и растворяется сам к утру'],
         ],
         payCta: 'Открыть за 90 ★',
         payNote: 'Разовый платёж на 30 дней. Без автосписания — напомним, когда закончится.',
@@ -1100,6 +1369,17 @@
         payNoLink: 'Оплата открывается из бота — напишите ему /start',
         hintText: 'Похоже, система прервала звук, когда экран погас. Мы включили его снова. Если это повторится — <b>откройте в браузере</b>: там звук не прерывается.',
         hintOpen: 'Открыть в браузере', hintClose: 'Не сейчас',
+        chars: {
+          'rain.soft':'Мягкий дождь', 'rain.far':'Дальний дождь', 'rain.city':'Городской дождь',
+          'rain.heavy':'Проливной дождь',
+          'waves.far':'Океан вдали', 'waves.close':'Волны у берега',
+          'wind.far':'Дальний ветер', 'wind.gust':'Порывистый ветер',
+          'fire.far':'Тлеющий огонь', 'fire.close':'Живой огонь',
+          'street.far':'Город за окном', 'street.near':'Улица рядом',
+          'crowd.far':'Дальние голоса', 'crowd.near':'Голоса рядом',
+          'train.far':'Поезд вдали',
+          'cafe.work':'Утреннее кафе', 'cafe.quiet':'Тихое кафе', 'cafe.evening':'Вечернее кафе',
+        },
         names: {
           rain:'Дождь', thunder:'Гром', waves:'Волны', wind:'Ветер', fire:'Огонь', birds:'Птицы',
           cafe:'Кафе', office:'Офис', street:'Улица', shop:'Магазин',
@@ -1121,6 +1401,26 @@
         headAdd: 'Add an element',
         ask: 'Where do you want to be?',
         askSub: 'Pick a state — the sound starts itself.\nYou can tune it later.',
+        or: 'or',
+        resumeTag: 'Return to your last Tishina',
+        resumeGo: 'Continue',
+        dayToday: 'Today', dayYest: 'Yesterday', dayAgo: 'days ago',
+        hourShort: 'h', minShort: 'min',
+        left: 'left', tapToWake: 'tap to bring the screen back',
+        refCta: 'Invite a friend',
+        refLine: 'Your friend gets 7 days, you get 14',
+        refTag: 'Share the silence',
+        refDs: 'If it helped you, send the link to someone it would help too. Your friend gets 7 full days, you get 14 more.',
+        refShare: 'Found a quiet thing — Tishina.\n\nYou pick a state, not a sound: focus, read, fall asleep, slow down — and the environment builds itself. Lives right inside Telegram, nothing to install.\n\nThis link opens 7 full days for you.',
+        refCopied: '✓ Link copied — send it to a friend',
+        meTitle: 'My Tishina',
+        meSub: 'Where you go, and for how long',
+        headWeek: 'This week',
+        headFav: 'Favourite atmospheres',
+        meEmpty: 'Your week will show up here once a few states add up.',
+        meTotal: 'This week in total',
+        meNote: 'The history lives on your device only. We never send it anywhere.',
+        streak: ['You have been here %n day in a row', 'You have been here %n days in a row', 'You have been here %n days in a row'],
         nature: 'Nature', city: 'City', transport: 'Transport', tones: 'Tones',
         play: 'Play', pause: 'Pause', resume: 'Resume', stop: 'Stop',
         timer: 'Timer', tune: 'Tune', animate: 'Animate', save: 'Save', share: 'Share',
@@ -1155,7 +1455,7 @@
           ['8 states, 28 environments', 'From deep work to an evening by the fire'],
           ['Morning and evening ritual', 'The bot reminds you to start and to stop'],
           ['32 sounds, your own mixes', 'Build yours and save it'],
-          ['Sleep timer', 'Fades out gently and stops'],
+          ['The whole night', 'Sound carries you to sleep and dissolves by morning'],
         ],
         payCta: 'Unlock for 90 ★',
         payNote: 'One-time payment for 30 days. No auto-renewal — we will remind you when it ends.',
@@ -1163,6 +1463,17 @@
         payNoLink: 'Payment opens from the bot — send it /start',
         hintText: 'It looks like the system interrupted the sound when the screen went dark. We brought it back. If it happens again — <b>open in a browser</b>: playback is never interrupted there.',
         hintOpen: 'Open in browser', hintClose: 'Not now',
+        chars: {
+          'rain.soft':'Soft rain', 'rain.far':'Distant rain', 'rain.city':'City rain',
+          'rain.heavy':'Pouring rain',
+          'waves.far':'Ocean far away', 'waves.close':'Waves on the shore',
+          'wind.far':'Distant wind', 'wind.gust':'Gusting wind',
+          'fire.far':'Smouldering fire', 'fire.close':'Living fire',
+          'street.far':'City behind the window', 'street.near':'Street nearby',
+          'crowd.far':'Distant voices', 'crowd.near':'Voices nearby',
+          'train.far':'Train far away',
+          'cafe.work':'Morning cafe', 'cafe.quiet':'Quiet cafe', 'cafe.evening':'Evening cafe',
+        },
         names: {
           rain:'Rain', thunder:'Thunder', waves:'Waves', wind:'Wind', fire:'Fire', birds:'Birds',
           cafe:'Cafe', office:'Office', street:'Street', shop:'Shop',
@@ -1325,6 +1636,54 @@
     };
 
     // ═══════════════════════════════════════════════════════════════
+    //  ХАРАКТЕРЫ. Один источник — не один звук. Дождь для чтения,
+    //  дождь для сна и дождь для работы — это три разных дождя,
+    //  и разными их делает не название, а сам звук: дальний глуше
+    //  и тише, городской — открытый. Человек видит характер,
+    //  слышит характер и никогда не видит цифр.
+    // ═══════════════════════════════════════════════════════════════
+    const CHARS = {
+      // У чтения дождь стоит позади «Дождя в окно» — он и должен быть
+      // дальним, иначе в составе окажутся два одинаковых дождя.
+      // У тренировки дождь идёт вместе с грозой: там он проливной.
+      rain:   { read:'far', meditate:'soft', unwind:'soft', sleep:'far', breath:'far',
+                focus:'city', place:'city', move:'heavy' },
+      waves:  { sleep:'far', meditate:'far', unwind:'close', breath:'close', place:'close' },
+      wind:   { sleep:'far', meditate:'far', read:'far', place:'far', breath:'far', move:'gust' },
+      fire:   { sleep:'far', read:'close', unwind:'close', meditate:'close' },
+      street: { focus:'far', read:'far', sleep:'far', move:'near', place:'near' },
+      crowd:  { focus:'far', read:'far', sleep:'far', move:'near', place:'near' },
+      train:  { sleep:'far', focus:'far' },
+      cafe:   { focus:'work', read:'quiet', place:'evening' },
+    };
+
+    // gain — насколько слой ближе или дальше;
+    // tone — открытость: 0 глухо и далеко, 1 рядом и в полный спектр
+    const CHAR_PROF = {
+      far:     { gain: 0.82, tone: 0.28 },
+      soft:    { gain: 0.94, tone: 0.52 },
+      quiet:   { gain: 0.88, tone: 0.48 },
+      work:    { gain: 0.94, tone: 0.62 },
+      evening: { gain: 1.00, tone: 0.72 },
+      city:    { gain: 1.00, tone: 0.80 },
+      gust:    { gain: 1.05, tone: 0.88 },
+      near:    { gain: 1.04, tone: 0.90 },
+      close:   { gain: 1.06, tone: 0.92 },
+      heavy:   { gain: 1.08, tone: 0.95 },
+    };
+
+    const charOf = (id, stId) => {
+      const st = stId !== undefined ? stId : (current && !current.name ? current.st : null);
+      return st && CHARS[id] ? CHARS[id][st] || null : null;
+    };
+    const charProf = (id, stId) => CHAR_PROF[charOf(id, stId)] || null;
+    const charGain = (id, stId) => (charProf(id, stId) || { gain: 1 }).gain;
+    const charName = (id, stId) => {
+      const c = charOf(id, stId);
+      return (c && I18N[lang].chars[id + '.' + c]) || nm(id);
+    };
+
+    // ═══════════════════════════════════════════════════════════════
     //  СОСТОЯНИЯ — верхний уровень. Человек выбирает не звук,
     //  а то, куда он хочет попасть. Внутри каждого состояния —
     //  две-шесть готовых сред. В каждой есть хотя бы один
@@ -1392,7 +1751,7 @@
           { id:'storm', ru:'Ветер и гроза',    en:'Wind and Storm',mix:{ wind:46, thunder:32, rain:30 } },
         ]},
 
-      { id:'sleep', ic:'sleep', dur:[30, 60], mainDur:480,
+      { id:'sleep', ic:'sleep', dur:[45, 90, -1], night:true,
         ru:['Уснуть', 'расслабление · замедление · переход ко сну'],
         fx:{ ru:'Звук замедляется вместе с вами и гаснет сам', en:'The sound slows down with you and fades on its own' },
         en:['Sleep', 'letting go · slowing down · drifting off'],
@@ -1432,7 +1791,163 @@
     const envFull = env => Object.keys(env.mix).every(id => { const s = byId(id); return s && allowed(s); });
     // Слои среды, которые реально прозвучат у этого человека
     const envAudible = env => Object.keys(env.mix).filter(id => { const s = byId(id); return s && allowed(s); });
-    const envDesc = env => envAudible(env).map(nm).join(' · ');
+    const envDesc = (env, stId) => envAudible(env).map(id => charName(id, stId)).join(' · ');
+
+    // ═══════════════════════════════════════════════════════════════
+    //  ПАМЯТЬ. Человек возвращается не за звуком, а за своим
+    //  состоянием — значит, приложение обязано его помнить.
+    //  Один журнал сессий, всё остальное считается из него на лету:
+    //  привычки по часам, любимые среды, неделя, дни подряд.
+    //  Живёт только в localStorage этого устройства, никуда не уходит.
+    // ═══════════════════════════════════════════════════════════════
+    const MEM_KEY = 'tishina_mem';
+    const MEM_DAYS = 45, MEM_MAX = 400;
+    const MEM_MIN_REAL = 1.5;   // короче — это «передумал», а не состояние
+
+    function memLoad() {
+      try {
+        const m = JSON.parse(localStorage.getItem(MEM_KEY));
+        if (m && Array.isArray(m.s)) return m;
+      } catch (e) {}
+      return { v: 1, s: [] };
+    }
+    function memSave(m) { try { localStorage.setItem(MEM_KEY, JSON.stringify(m)); } catch (e) {} }
+
+    const dayKey = ts => {
+      const d = new Date(ts);
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    };
+
+    // Текущая сессия: { t — её id и время старта, since — с какого
+    // момента ещё не записанное время. Время копится, даже если
+    // приложение свернули: аудио продолжает играть.
+    let memCur = null;
+
+    function memBegin() {
+      if (!current) return;
+      memEnd();
+      const m = memLoad();
+      const rec = {
+        t: Date.now(), d: dayKey(Date.now()),
+        st: current.st || '', env: current.env || '', mx: current.name || '', m: 0
+      };
+      m.s.push(rec);
+      const edge = Date.now() - MEM_DAYS * 86400000;
+      m.s = m.s.filter(r => r.t >= edge);
+      if (m.s.length > MEM_MAX) m.s = m.s.slice(-MEM_MAX);
+      memSave(m);
+      memCur = { t: rec.t, since: Date.now() };
+    }
+
+    function memAccrue() {
+      if (!memCur) return;
+      const now = Date.now();
+      const add = (now - memCur.since) / 60000;
+      memCur.since = now;
+      if (add < 0.05) return;
+      const m = memLoad();
+      const r = m.s.find(x => x.t === memCur.t);
+      if (!r) { memCur = null; return; }
+      r.m = Math.round((r.m + add) * 100) / 100;
+      memSave(m);
+    }
+
+    function memEnd() { memAccrue(); memCur = null; }
+    function memResume() { if (memCur) memCur.since = Date.now(); }
+
+    // ── Что из этого следует ──
+    function memStats() {
+      const m = memLoad();
+      const now = Date.now(), weekEdge = now - 7 * 86400000;
+      const byState = {}, byEnv = {}, days = new Set();
+      let week = 0, real = 0;
+      m.s.forEach(r => {
+        if (r.m < MEM_MIN_REAL) return;
+        real++;
+        days.add(r.d);
+        if (r.st && r.env) { const k = r.st + ':' + r.env; byEnv[k] = (byEnv[k] || 0) + r.m; }
+        if (r.t >= weekEdge) {
+          week += r.m;
+          if (r.st) byState[r.st] = (byState[r.st] || 0) + r.m;
+        }
+      });
+      return { week, byState, byEnv, days, real, all: m.s };
+    }
+
+    // Дни подряд. Сегодня ещё может не начаться — тогда считаем от вчера.
+    function memStreak(days) {
+      let n = 0;
+      const d = new Date();
+      if (!days.has(dayKey(d.getTime()))) d.setDate(d.getDate() - 1);
+      while (days.has(dayKey(d.getTime())) && n < 400) { n++; d.setDate(d.getDate() - 1); }
+      return n;
+    }
+
+    // Привычка этого часа: куда человек обычно попадает примерно сейчас
+    function memHabit(hour) {
+      const cnt = {};
+      memLoad().s.forEach(r => {
+        if (!r.st || r.m < 4 || !stateById(r.st)) return;
+        let diff = Math.abs(new Date(r.t).getHours() - hour);
+        if (diff > 12) diff = 24 - diff;
+        if (diff <= 2) cnt[r.st] = (cnt[r.st] || 0) + 1;
+      });
+      let best = null, bn = 0;
+      Object.keys(cnt).forEach(k => { if (cnt[k] > bn) { bn = cnt[k]; best = k; } });
+      return bn >= 2 ? best : null;
+    }
+
+    // Любимая среда внутри состояния — с ней и открываем состояние
+    function memFavEnv(stId) {
+      const st = stateById(stId);
+      if (!st) return null;
+      const acc = {};
+      memLoad().s.forEach(r => {
+        if (r.st !== stId || !r.env || r.m < MEM_MIN_REAL) return;
+        acc[r.env] = (acc[r.env] || 0) + r.m;
+      });
+      let best = null, bv = 0;
+      Object.keys(acc).forEach(k => { if (acc[k] > bv && st.envs.some(e => e.id === k)) { bv = acc[k]; best = k; } });
+      return best;
+    }
+
+    // Последняя настоящая сессия — для карточки возвращения
+    function memLast() {
+      const s = memLoad().s;
+      for (let i = s.length - 1; i >= 0; i--) {
+        const r = s[i];
+        if (r.st && r.env && r.m >= MEM_MIN_REAL) {
+          const st = stateById(r.st);
+          if (st && st.envs.some(e => e.id === r.env)) return r;
+        }
+      }
+      return null;
+    }
+
+    // ── Человеческие форматы ──
+    function plural(n, forms) {
+      if (lang !== 'ru') return forms[n === 1 ? 0 : 1].replace('%n', n);
+      const a = n % 100, b = n % 10;
+      const i = (a > 10 && a < 20) ? 2 : b === 1 ? 0 : (b >= 2 && b <= 4) ? 1 : 2;
+      return forms[i].replace('%n', n);
+    }
+
+    function durText(min) {
+      const m = Math.round(min);
+      if (m < 60) return m + ' ' + t('minShort');
+      const h = Math.floor(m / 60), r = m % 60;
+      return h + ' ' + t('hourShort') + (r ? ' ' + r + ' ' + t('minShort') : '');
+    }
+
+    function whenText(ts) {
+      const today = dayKey(Date.now());
+      const k = dayKey(ts);
+      if (k === today) return t('dayToday');
+      const y = new Date(); y.setDate(y.getDate() - 1);
+      if (k === dayKey(y.getTime())) return t('dayYest');
+      const d = Math.round((Date.now() - ts) / 86400000);
+      return d + ' ' + t('dayAgo');
+    }
 
     const FADE = 0.4, SCENE_FADE = 2.5, TIMER_FADE = 30;
 
@@ -1527,11 +2042,16 @@
           f.type = 'lowpass'; f.frequency.value = 3400; f.Q.value = 0.5;
           head.connect(f); head = f;
         }
+        // Характер: глухость = расстояние. Меняется вместе со средой,
+        // поэтому фильтр стоит всегда, просто по умолчанию открыт.
+        const chr = ctx.createBiquadFilter();
+        chr.type = 'lowpass'; chr.frequency.value = 20000; chr.Q.value = 0.4;
+        head.connect(chr); head = chr;
         head.connect(g);
         g.connect(masterGain);
         g.connect(ensureCtx._conv);
         el.volume = 1;
-        nodes[id] = { src, gain: g };
+        nodes[id] = { src, gain: g, chr };
       } catch (e) {}
     }
 
@@ -1544,7 +2064,7 @@
       el.preload = 'auto';
       el.volume = 0;
       el.setAttribute('playsinline', '');
-      if (ensureCtx()) connectWA(id, el);
+      if (ensureCtx()) { connectWA(id, el); applyChars(0.01); }
       el.addEventListener('playing', () => setCardLoading(id, false));
       el.addEventListener('canplaythrough', () => setCardLoading(id, false));
       el.addEventListener('error', () => {
@@ -1651,9 +2171,17 @@
 
     const anyActive = () => SOUNDS.some(s => state[s.id].active);
 
+    // Микс человека, а не мгновенный снимок динамика. Пространство
+    // всё время дышит и живёт событиями — если сохранять живое
+    // значение, микс запомнит случайный порыв ветра, а карточка
+    // «Сейчас» будет вечно писать «изменено». Считаем от базы.
     function currentMix() {
       const m = {};
-      SOUNDS.forEach(s => { if (state[s.id].active) m[s.id] = Math.round(state[s.id].volume * 100); });
+      SOUNDS.forEach(s => {
+        if (!state[s.id].active) return;
+        const base = baseVol[s.id] !== undefined ? baseVol[s.id] : state[s.id].volume;
+        m[s.id] = Math.max(1, Math.min(100, Math.round(base * atmoMult(s.id) * 100)));
+      });
       return m;
     }
 
@@ -1687,12 +2215,31 @@
       syncAtmoUI();
     }
 
+    // Глухость характера. На iOS Web Audio нет — там характер слышен
+    // только громкостью, и это нормально: главный сценарий там сон.
+    function applyChars(ramp = 2.5) {
+      if (!ctx) return;
+      SOUNDS.forEach(s => {
+        const n = nodes[s.id];
+        if (!n || !n.chr) return;
+        const c = charProf(s.id);
+        const f = Math.min(20000, c ? 800 * Math.pow(24, c.tone) : 20000);
+        try {
+          const now = ctx.currentTime, p = n.chr.frequency;
+          p.cancelScheduledValues(now);
+          p.setValueAtTime(p.value, now);
+          p.linearRampToValueAtTime(f, now + Math.max(0.01, ramp));
+        } catch (e) {}
+      });
+    }
+
     function applyMix(mix, fade = FADE) {
       paused = false;
       resetAtmo();
       baseVol = {};
+      applyChars(fade);
       SOUNDS.forEach(s => {
-        const vol = allowed(s) ? (mix[s.id] || 0) / 100 : 0;
+        const vol = allowed(s) ? (mix[s.id] || 0) / 100 * charGain(s.id) : 0;
         if (vol > 0) {
           baseVol[s.id] = vol;
           state[s.id].volume = vol;
@@ -1724,23 +2271,29 @@
       return { top: st[lang][0], sub: env[lang] };
     }
 
+    // «Изменено» — про человека. Дыхание среды и события — не изменения.
     function mixMatchesEnv() {
       if (!current || current.name) return true;
       const st = stateById(current.st);
       const env = st?.envs.find(e => e.id === current.env);
       if (!env) return true;
-      const cur = currentMix();
-      const want = {};
-      envAudible(env).forEach(id => { want[id] = env.mix[id]; });
-      const a = Object.keys(cur).sort(), b = Object.keys(want).sort();
-      if (a.join() !== b.join()) return false;
-      return a.every(k => Math.abs(cur[k] - want[k]) <= 1);
+      if (atmo.level !== 1 || atmo.warm !== 0 || atmo.alive !== 0) return false;
+      const want = envAudible(env).slice().sort();
+      const have = SOUNDS.filter(x => state[x.id].active).map(x => x.id).sort();
+      if (want.join() !== have.join()) return false;
+      return want.every(id =>
+        Math.abs((baseVol[id] !== undefined ? baseVol[id] : 0) * 100 - env.mix[id] * charGain(id)) <= 1);
     }
 
     // ═══════════════════════════════════════════════════════════════
     //  Навигация между тремя экранами
     // ═══════════════════════════════════════════════════════════════
-    const views = { now: document.getElementById('v-now'), state: document.getElementById('v-state'), tune: document.getElementById('v-tune') };
+    const views = {
+      now: document.getElementById('v-now'),
+      state: document.getElementById('v-state'),
+      tune: document.getElementById('v-tune'),
+      me: document.getElementById('v-me'),
+    };
     let view = 'now';
 
     function showView(v) {
@@ -1760,16 +2313,229 @@
     // ═══════════════════════════════════════════════════════════════
     const statesBox = document.getElementById('states');
 
+    // ═══════════════════════════════════════════════════════════════
+    //  МНЕНИЕ ПРИЛОЖЕНИЯ. Час суток — только первая догадка.
+    //  Если человек уже показал, куда он ходит в это время,
+    //  привычка сильнее расписания. Мнение всегда мягкое:
+    //  предложение, а не указание, и рядом всегда есть «или».
+    // ═══════════════════════════════════════════════════════════════
+    const MOMENTS = [
+      { from: 0, st:'sleep', alt:'meditate',
+        ru:{ hi:'Тихая ночь', q:'Помочь уснуть?', line:'Ночь идёт своим ходом — можно ей не мешать.', when:'ночь — поможем уснуть' },
+        en:{ hi:'Quiet night', q:'Help you fall asleep?', line:'The night goes its own way — no need to fight it.', when:'night — we will help you sleep' } },
+      { from: 5, st:'breath', alt:'focus',
+        ru:{ hi:'Доброе утро', q:'Начать день спокойно?', line:'Тело ещё просыпается — можно его не торопить.', when:'утро — мягко разбудить тело' },
+        en:{ hi:'Good morning', q:'Start the day calmly?', line:'The body is still waking up — no need to rush it.', when:'morning — gently wake the body' } },
+      { from: 9, st:'focus', alt:'read',
+        ru:{ hi:'Доброе утро', q:'Куда направить внимание?', line:'Самое ясное время дня — им легко распорядиться.', when:'самое ясное время дня' },
+        en:{ hi:'Good morning', q:'Where should your attention go?', line:'The clearest hours of the day — easy to spend well.', when:'the clearest hours of the day' } },
+      { from: 12, st:'focus', alt:'unwind',
+        ru:{ hi:'Середина дня', q:'Что нужно сейчас?', line:'Можно углубиться в работу — или дать себе паузу.', when:'середина дня' },
+        en:{ hi:'Midday', q:'What do you need now?', line:'You can go deeper into work — or take a pause.', when:'midday' } },
+      { from: 15, st:'focus', alt:'unwind',
+        ru:{ hi:'День идёт', q:'Собрать внимание обратно?', line:'К этому часу оно обычно рассеивается.', when:'к этому часу внимание рассеивается' },
+        en:{ hi:'Afternoon', q:'Gather your attention back?', line:'By this hour it usually starts to scatter.', when:'attention scatters around this hour' } },
+      { from: 17, st:'unwind', alt:'read',
+        ru:{ hi:'Добрый вечер', q:'Можно выдохнуть.', line:'Рабочая часть дня позади.', when:'вечер — можно выдохнуть' },
+        en:{ hi:'Good evening', q:'You can exhale now.', line:'The working part of the day is behind you.', when:'evening — time to exhale' } },
+      { from: 20, st:'read', alt:'sleep',
+        ru:{ hi:'Добрый вечер', q:'Тихий вечер для чтения?', line:'День почти закончился — резких переходов лучше не делать.', when:'тихий вечер для чтения' },
+        en:{ hi:'Good evening', q:'A quiet evening to read?', line:'The day is nearly over — better without sharp turns.', when:'a quiet evening to read' } },
+      { from: 22, st:'sleep', alt:'meditate',
+        ru:{ hi:'Поздний вечер', q:'Хотите мягко перейти ко сну?', line:'Похоже, день подходит к концу.', when:'уже поздно — поможем уснуть' },
+        en:{ hi:'Late evening', q:'Would you like to drift toward sleep?', line:'It looks like the day is coming to an end.', when:'it is late — we will help you sleep' } },
+    ];
+
+    const GRT = {
+      ru: { habitQ: 'Вернуться туда, где вы обычно в это время?', habitLine: 'Похоже, этот час у вас занят именно этим.' },
+      en: { habitQ: 'Back to where you usually are at this hour?', habitLine: 'This hour seems to belong to it.' },
+    };
+
+    function momentNow() {
+      const hr = new Date().getHours();
+      let m = MOMENTS[0];
+      MOMENTS.forEach(x => { if (hr >= x.from) m = x; });
+      return m;
+    }
+
     // Который час — такое и предложение. Приложение угадывает,
     // а не заставляет выбирать даже состояние.
     function suggestNow() {
-      const hr = new Date().getHours();
-      if (hr >= 22 || hr < 5) return { id: 'sleep',  ru: 'уже поздно — поможем уснуть',      en: 'it is late — we will help you sleep' };
-      if (hr >= 5 && hr < 9)  return { id: 'breath', ru: 'утро — мягко разбудить тело',      en: 'morning — gently wake the body' };
-      if (hr >= 9 && hr < 17) return { id: 'focus',  ru: 'самое время для глубокой работы',  en: 'the right time for deep work' };
-      if (hr >= 17 && hr < 20) return { id: 'unwind', ru: 'вечер — можно выдохнуть',         en: 'evening — time to exhale' };
-      return { id: 'read', ru: 'тихий вечер для чтения', en: 'a quiet evening to read' };
+      const mo = momentNow();
+      const habit = memHabit(new Date().getHours());
+      const id = habit && stateById(habit) ? habit : mo.st;
+      const when = habit && habit !== mo.st
+        ? (lang === 'ru' ? 'обычно вы здесь в это время' : 'usually where you are at this hour')
+        : mo[lang].when;
+      return { id, ru: when, en: when, mo, habit: habit && habit !== mo.st ? habit : null };
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Пустой экран — не каталог, а начало путешествия
+    // ═══════════════════════════════════════════════════════════════
+    const greetGo = document.getElementById('greet-go');
+    const greetAlt = document.getElementById('greet-alt');
+    let greetPick = null, greetAltId = null;
+
+    function renderGreet() {
+      const sug = suggestNow();
+      const mo = sug.mo, c = mo[lang];
+      const st = stateById(sug.id) || stateById(mo.st);
+      const alt = stateById(sug.habit ? mo.st : mo.alt) || stateById(mo.alt);
+
+      document.getElementById('greet-hi').textContent = c.hi;
+      document.getElementById('greet-q').textContent = sug.habit ? GRT[lang].habitQ : c.q;
+      document.getElementById('greet-line').textContent = sug.habit ? GRT[lang].habitLine : c.line;
+
+      // Одно касание — и человек уже внутри. Среда: любимая, иначе рекомендованная.
+      const envId = memFavEnv(st.id);
+      const env = st.envs.find(e => e.id === envId) || st.envs[0];
+      greetPick = { st, env };
+      greetGo.innerHTML = '<span class="ic">' + SIC[st.ic] + '</span><span>' +
+        '<span class="nmx"></span> <span class="sub2"></span></span>';
+      greetGo.querySelector('.nmx').textContent = st[lang][0];
+      greetGo.querySelector('.sub2').textContent = '· ' + env[lang];
+
+      greetAltId = alt && alt.id !== st.id ? alt.id : null;
+      if (greetAltId) {
+        greetAlt.style.display = '';
+        greetAlt.textContent = t('or') + ' ' + alt[lang][0].toLowerCase();
+      } else greetAlt.style.display = 'none';
+    }
+
+    greetGo.addEventListener('click', () => {
+      if (!greetPick) return;
+      playEnv(greetPick.st, greetPick.env, envFull(greetPick.env));
+    });
+    greetAlt.addEventListener('click', () => {
+      const st = stateById(greetAltId);
+      if (st) { hap('light'); openState(st, true); }
+    });
+
+    // ── Возвращение. Человек приходит не за звуком, а за своим состоянием ──
+    const resumeCard = document.getElementById('resume-card');
+    let resumePick = null;
+
+    function renderResume() {
+      const r = memLast();
+      const st = r && stateById(r.st);
+      const env = st && st.envs.find(e => e.id === r.env);
+      // Первый опыт не загромождаем: карточка появляется, когда есть что продолжать
+      if (!env || memStats().real < 2) { resumeCard.classList.remove('on'); resumePick = null; return; }
+      resumePick = { st, env };
+      document.getElementById('resume-tag').textContent = t('resumeTag');
+      document.getElementById('resume-nm').textContent = env[lang];
+      document.getElementById('resume-ds').textContent =
+        st[lang][0] + ' · ' + whenText(r.t) + ' · ' + durText(r.m);
+      document.getElementById('resume-go').textContent = t('resumeGo');
+      resumeCard.classList.add('on');
+    }
+    document.getElementById('resume-go').addEventListener('click', () => {
+      if (resumePick) playEnv(resumePick.st, resumePick.env, envFull(resumePick.env));
+    });
+
+    // ── Постоянство. Факт, а не награда: ни очков, ни серий, ни огоньков ──
+    function renderStreak() {
+      const el = document.getElementById('streak');
+      const n = memStreak(memStats().days);
+      if (n < 3) { el.classList.remove('on'); return; }
+      el.textContent = plural(n, t('streak'));
+      el.classList.add('on');
+    }
+
+    function renderIdle() {
+      renderGreet();
+      renderResume();
+      renderStreak();
+      renderStates();   // приложение открыто с утра — к вечеру порядок другой
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Моя Тишина. Не геймификация: ни очков, ни целей, ни серий,
+    //  которые «нельзя прерывать». Только зеркало — где человек
+    //  бывает и сколько. И вход обратно в любимое место.
+    // ═══════════════════════════════════════════════════════════════
+    const meBarsBox = document.getElementById('me-bars');
+    const meFavBox = document.getElementById('me-fav');
+
+    function openMe() {
+      const s = memStats();
+      document.getElementById('me-title').textContent = t('meTitle');
+      document.getElementById('me-sub').textContent = t('meSub');
+      document.getElementById('head-week').textContent = t('headWeek');
+      document.getElementById('me-note').textContent = t('meNote');
+
+      const rows = Object.keys(s.byState)
+        .map(id => ({ st: stateById(id), min: s.byState[id] }))
+        .filter(r => r.st && r.min >= 1)
+        .sort((a, b) => b.min - a.min);
+
+      meBarsBox.innerHTML = '';
+      const emptyEl = document.getElementById('me-empty');
+      if (!rows.length) {
+        emptyEl.textContent = t('meEmpty');
+        emptyEl.style.display = '';
+      } else {
+        emptyEl.style.display = 'none';
+        const max = rows[0].min;
+        rows.forEach(r => {
+          const el = document.createElement('div');
+          el.className = 'me-row';
+          el.innerHTML = '<div class="top"><span class="nm"></span><span class="val"></span></div>' +
+                         '<div class="bar"><i></i></div>';
+          el.querySelector('.nm').textContent = r.st[lang][0];
+          el.querySelector('.val').textContent = durText(r.min);
+          el.querySelector('.bar i').style.width = Math.max(4, Math.round(r.min / max * 100)) + '%';
+          meBarsBox.appendChild(el);
+        });
+        const tot = document.createElement('div');
+        tot.className = 'me-row';
+        tot.style.marginTop = '4px';
+        tot.innerHTML = '<div class="top" style="color:var(--text-dim);font-size:12px">' +
+                        '<span class="a"></span><span class="val" style="color:var(--accent)"></span></div>';
+        tot.querySelector('.a').textContent = t('meTotal');
+        tot.querySelector('.val').textContent = durText(s.week);
+        meBarsBox.appendChild(tot);
+      }
+
+      // Любимые атмосферы — не список файлов, а двери обратно
+      const favs = Object.keys(s.byEnv)
+        .map(k => {
+          const [stId, envId] = k.split(':');
+          const st = stateById(stId);
+          const env = st && st.envs.find(e => e.id === envId);
+          return env ? { st, env, min: s.byEnv[k] } : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.min - a.min)
+        .slice(0, 3);
+
+      meFavBox.innerHTML = '';
+      const favHead = document.getElementById('head-fav');
+      favHead.textContent = t('headFav');
+      favHead.style.display = favs.length ? '' : 'none';
+      favs.forEach(f => {
+        const b = document.createElement('button');
+        b.className = 'env';
+        b.innerHTML = '<span class="txt"><span class="nm"></span><span class="ds"></span></span>' +
+                      '<span class="play">' + PLAY_IC + '</span>';
+        b.querySelector('.nm').textContent = f.env[lang];
+        b.querySelector('.ds').textContent = f.st[lang][0] + ' · ' + durText(f.min);
+        b.addEventListener('click', () => playEnv(f.st, f.env, envFull(f.env)));
+        meFavBox.appendChild(b);
+      });
+
+      // Позвать уместно тому, у кого уже получилось: он видит свою неделю
+      const mr = document.getElementById('me-ref');
+      mr.classList.toggle('on', canInvite());
+      document.getElementById('me-ref-tag').textContent = t('refTag');
+      document.getElementById('me-ref-ds').textContent = t('refDs');
+      document.getElementById('me-ref-btn').textContent = t('refCta');
+
+      showView('me');
+    }
+
+    document.getElementById('me-btn').addEventListener('click', () => { hap('light'); openMe(); });
 
     function renderStates() {
       statesBox.innerHTML = '';
@@ -1780,14 +2546,14 @@
         const b = document.createElement('button');
         b.className = 'state' + (st.id === sug.id ? ' suggested' : '');
         b.dataset.st = st.id;
+        // Подсказку «почему именно это» несёт приветствие наверху —
+        // здесь она бы просто повторилась. Остаётся только порядок.
         b.innerHTML =
           '<span class="ic">' + SIC[st.ic] + '</span>' +
-          '<span class="txt"><span class="nm"></span><span class="ds"></span>' +
-          (st.id === sug.id ? '<span class="when"></span>' : '') + '</span>' +
+          '<span class="txt"><span class="nm"></span><span class="ds"></span></span>' +
           '<span class="chev">' + CHEV + '</span>';
         b.querySelector('.nm').textContent = st[lang][0];
         b.querySelector('.ds').textContent = st[lang][1];
-        if (st.id === sug.id) b.querySelector('.when').textContent = sug[lang];
         b.addEventListener('click', () => { hap('light'); openState(st, true); });
         statesBox.appendChild(b);
       });
@@ -1856,7 +2622,7 @@
       if (st.dur) {
         chips = '<div class="chips">' + st.dur.map(d =>
           '<button class="chip" data-d="' + d + '">' +
-          (d === 0 ? t('noTimer') : d === 480 ? t('tillMorning') : d + ' ' + t('min')) +
+          (d === 0 ? t('noTimer') : d === -1 ? t('tillMorning') + ' · ' + morningText() : d + ' ' + t('min')) +
           '</button>').join('') + '</div>';
       }
       card.innerHTML =
@@ -1864,7 +2630,7 @@
         '<div class="nm"></div><div class="ds"></div>' +
         '<button class="start">' + t('start') + '</button>' + chips;
       card.querySelector('.nm').textContent = rec[lang];
-      card.querySelector('.ds').textContent = envDesc(rec);
+      card.querySelector('.ds').textContent = envDesc(rec, st.id);
       recBtn = card.querySelector('.start');
       recEnvRef = { st, env: rec };
       recBtn.addEventListener('click', () => {
@@ -1875,17 +2641,21 @@
           return;
         }
         playEnv(st, rec, recFull, true);
-        if (st.mainDur) setTimer(st.mainDur);
+        if (st.night) setTimer(nightDefaultMin());
         refreshAll();
       });
       card.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
         const d = parseInt(c.dataset.d, 10);
+        // «До утра» — обещание, которое стоит денег: всю ночь без обрывов
+        if (d === -1 && !nightAllowed()) { showPaywall('lock'); return; }
         // Если рекомендация уже звучит — чип просто ставит таймер,
         // а не перезапускает и тем более не останавливает атмосферу
         const same = current && !current.name && current.st === st.id && current.env === rec.id && anyActive();
         if (!same) playEnv(st, rec, recFull, true);
         else if (paused) resumeAll();
-        if (d > 0) { setTimer(d); haptics.success(); } else cancelTimer();
+        if (d === -1) { setTimer(tillMorningMin()); haptics.success(); }
+        else if (d > 0) { setTimer(d); haptics.success(); }
+        else cancelTimer();
         refreshAll();
       }));
       recBox.appendChild(card);
@@ -1904,7 +2674,7 @@
           '<span class="txt"><span class="nm"></span><span class="ds"></span></span>' +
           (full ? '' : LOCK.replace('class="badge"', 'class="lk"'));
         b.querySelector('.nm').textContent = env[lang];
-        b.querySelector('.ds').textContent = envDesc(env);
+        b.querySelector('.ds').textContent = envDesc(env, st.id);
         b.addEventListener('click', () => playEnv(st, env, full));
         envsBox.appendChild(b);
       });
@@ -1913,7 +2683,7 @@
       // Один тап — и состояние уже звучит. Настройка потом, если захочется.
       if (autoplay && !(current && !current.name && current.st === st.id && anyActive())) {
         playEnv(st, rec, recFull, true);
-        if (st.mainDur) setTimer(st.mainDur);
+        if (st.night) setTimer(nightDefaultMin());
         refreshAll();
       }
       refreshRecBtn();
@@ -1924,7 +2694,7 @@
       const { st, env } = recEnvRef;
       const here = current && !current.name && current.st === st.id && current.env === env.id && anyActive();
       if (here) recBtn.textContent = paused ? t('resume') : t('pause');
-      else recBtn.textContent = t('start') + (st.mainDur ? ' · ' + t('tillMorning').toLowerCase() : '');
+      else recBtn.textContent = t('start') + (st.night ? ' · ' + nightDefaultText() : '');
     }
 
     function playEnv(st, env, full, stay) {
@@ -1934,9 +2704,12 @@
       if (current && current.st === st.id && current.env === env.id && !paused) { stopAll(); showView('now'); return; }
       current = { st: st.id, env: env.id };
       startedAt = Date.now();
+      memBegin();
       cancelTimer();
       applyMix(env.mix, SCENE_FADE);
       if (env.timer) setTimer(env.timer);
+      // В «Уснуть» заходят не для того, чтобы потом что-то выключать
+      else if (st.night && !stay) setTimer(nightDefaultMin());
       clearMixHighlight();
       saveLast();
       refreshAll();
@@ -1965,14 +2738,18 @@
       // На пустом экране заголовок дублировал бы вопрос — прячем.
       document.getElementById('head-states').textContent = t('otherStates');
       document.getElementById('head-states').style.display = on ? '' : 'none';
+      // «Моя Тишина» появляется, только когда ей есть что показать
+      document.getElementById('me-btn').style.display = memStats().real >= 3 ? '' : 'none';
+      if (!on) renderIdle();
 
       if (on) {
         const l = label();
         document.getElementById('now-eyebrow').textContent = t('eyebrow');
         document.getElementById('now-state').textContent = l.top;
-        document.getElementById('now-env').textContent = l.sub + (mixMatchesEnv() ? '' : ' · ' + t('edited'));
+        document.getElementById('now-env').textContent =
+          l.sub + (mixMatchesEnv() || sleepMode ? '' : ' · ' + t('edited'));
         document.getElementById('now-layers').textContent =
-          SOUNDS.filter(s => state[s.id].active).map(s => nm(s.id)).join(' · ');
+          SOUNDS.filter(s => state[s.id].active).map(s => charName(s.id)).join(' · ');
         btnPP.textContent = paused ? t('resume') : t('pause');
       }
 
@@ -1989,9 +2766,11 @@
       if (paused && agoText) { clockEl.classList.remove('timer'); clockEl.textContent = agoText; return; }
       if (timerEnd) {
         const left = Math.max(0, timerEnd - Date.now());
+        clockEl.classList.add('timer');
+        // Ночь меряется часами: «439:12» — это не про сон
+        if (left >= 3600000) { clockEl.textContent = durText(left / 60000); return; }
         const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
         clockEl.textContent = m + ':' + String(s).padStart(2, '0');
-        clockEl.classList.add('timer');
         return;
       }
       clockEl.classList.remove('timer');
@@ -2007,7 +2786,9 @@
 
     function pauseAll() {
       if (!anyActive()) return;
+      memAccrue();
       paused = true;
+      if (sleepMode) nightPoke();   // на паузе ночной экран держать незачем
       SOUNDS.forEach(s => {
         if (state[s.id].active && els[s.id]) fadeTo(s.id, 0, 0.45, () => { try { els[s.id].pause(); } catch (e) {} });
       });
@@ -2019,11 +2800,14 @@
       paused = false;
       agoText = '';
       startedAt = startedAt || Date.now();
+      // Сессия из прошлого запуска: журнал ещё не знает про неё
+      if (memCur) memResume(); else memBegin();
       SOUNDS.forEach(s => { if (state[s.id].active) startSound(s.id, 0.7); });
       refreshAll();
     }
 
     function stopAll() {
+      memEnd();
       SOUNDS.forEach(s => { if (state[s.id].active) { state[s.id].active = false; stopSound(s.id); } });
       current = null;
       paused = false;
@@ -2149,7 +2933,8 @@
       layersBox.innerHTML = '';
       const act = SOUNDS.filter(s => state[s.id].active);
       act.forEach(s => {
-        const v = Math.round(state[s.id].volume * 100);
+        const base = baseVol[s.id] !== undefined ? baseVol[s.id] : state[s.id].volume;
+        const v = Math.max(1, Math.min(100, Math.round(base * atmoMult(s.id) * 100)));
         const row = document.createElement('div');
         row.className = 'layer';
         row.innerHTML =
@@ -2157,7 +2942,7 @@
           '<span class="body"><span class="nm"></span>' +
           '<input type="range" min="0" max="100" value="' + v + '" style="--val:' + v + '%"></span>' +
           '<button class="off">×</button>';
-        row.querySelector('.nm').textContent = nm(s.id);
+        row.querySelector('.nm').textContent = charName(s.id);
         const sl = row.querySelector('input');
         sl.addEventListener('input', e => {
           const val = e.target.value;
@@ -2328,6 +3113,7 @@
           startTrialIfNeeded();
           current = { name: p.name };
           startedAt = Date.now();
+          memBegin();
           cancelTimer();
           applyMix(p.mix, SCENE_FADE);
           saveLast();
@@ -2369,18 +3155,108 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  Пространство дышит само: медленный едва заметный дрейф
-    //  громкостей. Раньше это была кнопка «Оживить» — теперь это
-    //  свойство среды, а не функция, которую нужно найти и включить.
+    //  ЖИВОЕ ПРОСТРАНСТВО. Раньше это была кнопка «Оживить» — теперь
+    //  свойство среды. Два механизма.
+    //
+    //  Дыхание: у каждого слоя свой период и своя глубина. Когда все
+    //  слои дышали одним тиком и одной амплитудой, пять источников
+    //  читались как один общий луп — именно то ощущение дешёвого
+    //  зацикливания, от которого надо было уйти.
+    //
+    //  События: дальняя гроза приходит и уходит, огонь вспыхивает,
+    //  ветер идёт порывом. Событие — всегда отклонение уже звучащего
+    //  слоя: новых слоёв не появляется, состав среды не меняется,
+    //  «изменено» не загорается, микс не портится.
     // ═══════════════════════════════════════════════════════════════
+    const BREATH = {
+      rain:{p:1,a:0.11}, thunder:{p:4,a:0.16}, waves:{p:1,a:0.15}, wind:{p:1,a:0.17},
+      fire:{p:1,a:0.15}, birds:{p:2,a:0.16},
+      cafe:{p:2,a:0.10}, office:{p:3,a:0.07}, street:{p:2,a:0.11}, shop:{p:2,a:0.10},
+      park:{p:2,a:0.12}, crowd:{p:2,a:0.13}, window:{p:1,a:0.10}, hearth:{p:1,a:0.13},
+      highway:{p:2,a:0.09}, airport:{p:3,a:0.09},
+      plane:{p:4,a:0.05}, car:{p:2,a:0.10}, train:{p:2,a:0.09}, metro:{p:2,a:0.10},
+      bus:{p:2,a:0.09}, boat:{p:2,a:0.11},
+    };
+    // Тональные слои почти не дышат: качающийся тон слышен как фальшь
+    const breathOf = id => TONAL.has(id) ? { p:6, a:0.03 } : (BREATH[id] || { p:3, a:0.08 });
+    const breathPhase = {};
+    SOUNDS.forEach((s, i) => { breathPhase[s.id] = (i * 5) % 7; });
+
+    const evtBusy = new Set();
+    let breathTick = 0;
+
     setInterval(() => {
       if (paused || !anyActive()) return;
+      breathTick++;
+      const night = sleepMode ? 0.45 : 1;
       SOUNDS.forEach(s => {
-        if (!state[s.id].active) return;
-        const next = Math.min(0.98, Math.max(0.04, state[s.id].volume + (Math.random() - 0.5) * 0.12));
-        setVolume(s.id, next, 7);
+        if (!state[s.id].active || evtBusy.has(s.id)) return;
+        const b = breathOf(s.id);
+        const per = sleepMode ? b.p * 2 : b.p;
+        if ((breathTick + breathPhase[s.id]) % per !== 0) return;
+        const step = (Math.random() - 0.5) * b.a * night;
+        const next = Math.min(0.98, Math.max(0.04, state[s.id].volume + step));
+        setVolume(s.id, next, sleepMode ? 20 : 7);
       });
     }, 9000);
+
+    // peak — насколько слой выходит вперёд; in / hold / out — секунды.
+    // Приход всегда медленнее ухода наоборот: событие должно
+    // подкрадываться, а не включаться.
+    const EVENTS = {
+      thunder: { peak:0.24, in:35, hold:25, out:50 },
+      rain:    { peak:0.16, in:45, hold:40, out:70 },
+      fire:    { peak:0.20, in:10, hold:6,  out:22 },
+      hearth:  { peak:0.14, in:12, hold:8,  out:26 },
+      waves:   { peak:0.15, in:16, hold:8,  out:28 },
+      wind:    { peak:0.18, in:30, hold:20, out:50 },
+      birds:   { peak:0.17, in:18, hold:14, out:34 },
+      crowd:   { peak:0.11, in:24, hold:16, out:40 },
+      street:  { peak:0.11, in:22, hold:14, out:38 },
+      cafe:    { peak:0.10, in:26, hold:18, out:44 },
+      park:    { peak:0.12, in:22, hold:16, out:40 },
+      metro:   { peak:0.10, in:20, hold:10, out:32 },
+      car:     { peak:0.10, in:16, hold:8,  out:28 },
+      boat:    { peak:0.12, in:20, hold:12, out:34 },
+    };
+
+    let evtTimer = null;
+    const evtToken = () => current ? (current.st || '') + ':' + (current.env || '') + ':' + (current.name || '') : '';
+
+    function scheduleEvent() {
+      clearTimeout(evtTimer);
+      // Ночью события реже и слабее, после засыпания их нет вовсе
+      const base = sleepMode ? 210000 : 75000;
+      evtTimer = setTimeout(runEvent, base + Math.random() * base);
+    }
+
+    function runEvent() {
+      scheduleEvent();
+      if (paused || !anyActive() || (sleepMode && sleepHushed)) return;
+      const pool = SOUNDS.filter(s => state[s.id].active && EVENTS[s.id] && !evtBusy.has(s.id));
+      if (!pool.length) return;
+      const id = pool[Math.floor(Math.random() * pool.length)].id;
+      const e = EVENTS[id];
+      const base = state[id].volume;
+      const lift = e.peak * (sleepMode ? 0.35 : 0.7 + Math.random() * 0.6);
+      const token = evtToken();
+      const alive = () => state[id].active && !paused && token === evtToken();
+      evtBusy.add(id);
+      setVolume(id, Math.min(0.98, base + lift), e.in);
+      setTimeout(() => {
+        if (!alive()) { evtBusy.delete(id); return; }
+        setVolume(id, base, e.out);
+        setTimeout(() => evtBusy.delete(id), e.out * 1000);
+      }, (e.in + e.hold) * 1000);
+    }
+    // Первый отсчёт откладываем: на старте скрипта sleepMode ещё не объявлен
+    setTimeout(scheduleEvent, 20000);
+
+    // Журнал пишется на ходу: приложение могут закрыть в любой момент,
+    // и час сна не должен пропасть из-за этого
+    setInterval(() => { if (!paused && anyActive()) memAccrue(); }, 30000);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) memAccrue(); });
+    window.addEventListener('pagehide', () => memAccrue());
 
     // ═══════════════════════════════════════════════════════════════
     //  Таймер
@@ -2404,12 +3280,20 @@
       clearTimers();
       const ms = min * 60000;
       timerEnd = Date.now() + ms;
-      fadeTimeout = setTimeout(() => {
-        clockEl.classList.add('fading');
-        setMasterVolume(0.0001, TIMER_FADE);
-      }, Math.max(0, ms - TIMER_FADE * 1000));
+      const night = isSleepEnv();
+      sleepArm(night ? min : 0);
+      // Днём звук гаснет за полминуты. Ночью гасить нечего:
+      // громкость шла вниз всю ночь и к этому моменту уже почти ноль.
+      if (!night) {
+        fadeTimeout = setTimeout(() => {
+          clockEl.classList.add('fading');
+          setMasterVolume(0.0001, TIMER_FADE);
+        }, Math.max(0, ms - TIMER_FADE * 1000));
+      }
       timerTimeout = setTimeout(() => {
-        stopAll(); masterVol = 1; showToast(t('timerDone'));
+        const wasNight = sleepMode;
+        stopAll(); masterVol = 1;
+        if (!wasNight) showToast(t('timerDone'));   // ночью будить некого
       }, ms);
       btnTimer.classList.add('active');
       updateClock();
@@ -2422,11 +3306,143 @@
 
     function cancelTimer() {
       clearTimers();
+      sleepDisarm();
       timerEnd = null;
       btnTimer.classList.remove('active');
       clockEl.classList.remove('fading', 'timer');
-      if (masterVol < 1) setMasterVolume(1, 0.5);
+      // Если звука уже нет, громкость возвращаем молча: иначе на самом
+      // конце ночи мастер успел бы подняться и стать слышным
+      if (masterVol < 1) { if (anyActive()) setMasterVolume(1, 0.5); else masterVol = 1; }
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  ГЛУБОКИЙ СОН. Единственный сценарий, где продукт работает
+    //  часами без человека. Правило одно: ТИШИНА знает, когда
+    //  исчезнуть — и делает это так, что момент невозможно заметить.
+    // ═══════════════════════════════════════════════════════════════
+    const WAKE_HOUR = 7;
+    const NIGHT_FREE_MIN = 90;      // без глубокой тишины ночь короче
+    const SLEEP_HUSH_AT = 12;       // мин — когда уходят пиковые слои
+    // Слои, которые умеют вздрогнуть: гром, голоса, объявления
+    const SPIKY = new Set(['thunder', 'birds', 'crowd', 'airport', 'shop', 'street']);
+
+    let sleepMode = false, sleepStart = 0, sleepEnd = 0, sleepTicker = null, sleepHushed = false;
+
+    const isSleepEnv = () => !!(current && !current.name && stateById(current.st)?.night);
+    const nightAllowed = () => accessNow() !== 'free';
+
+    // Сколько на самом деле осталось до утра — не абстрактные «8 часов»
+    function tillMorningMin() {
+      const now = new Date();
+      const w = new Date(now.getTime());
+      w.setHours(WAKE_HOUR, 0, 0, 0);
+      if (w.getTime() <= now.getTime()) w.setDate(w.getDate() + 1);
+      return Math.max(60, Math.min(600, Math.round((w.getTime() - now.getTime()) / 60000)));
+    }
+    const nightDefaultMin = () => nightAllowed() ? tillMorningMin() : NIGHT_FREE_MIN;
+
+    function morningText() {
+      const m = tillMorningMin(), h = Math.floor(m / 60), r = m % 60;
+      return h + ' ' + t('hourShort') + (r ? ' ' + r : '');
+    }
+    const nightDefaultText = () =>
+      nightAllowed() ? t('tillMorning').toLowerCase() : NIGHT_FREE_MIN + ' ' + t('min');
+
+    // ── Кривая ночи ──
+    // Держим · засыпаем · поддерживаем · растворяемся.
+    // Ни одного слышимого перехода: всё квадратично и медленно.
+    function sleepGain(elapsed, total) {
+      if (elapsed >= total) return 0;
+      const dissolve = Math.min(25, total * 0.2);      // хвост растворения
+      const endFade = total - dissolve;
+      const hold = Math.min(15, total * 0.15);         // пока человек ещё не спит
+      const asleep = Math.min(hold + 45, endFade);     // к этому часу он уже спит
+      const DEEP = 0.45, FLOOR = 0.22;
+
+      // Уровень до начала растворения
+      const level = x => {
+        if (x <= hold) return 1;
+        if (x <= asleep) {
+          const k = (x - hold) / Math.max(0.001, asleep - hold);
+          return 1 - (1 - DEEP) * k * k;               // 1.00 → 0.45, начало незаметно
+        }
+        const k = (x - asleep) / Math.max(0.001, endFade - asleep);
+        return DEEP - (DEEP - FLOOR) * k;              // 0.45 → 0.22, почти плато
+      };
+      if (elapsed < endFade) return level(elapsed);
+      // Растворение начинается ровно с той громкости, что была: короткий
+      // сон не должен спотыкаться о ступеньку в середине кривой
+      const k = (elapsed - endFade) / dissolve;
+      return level(endFade) * (1 - k) * (1 - k);
+    }
+
+    function sleepArm(totalMin) {
+      sleepDisarm();
+      if (!totalMin) return;
+      sleepMode = true;
+      sleepStart = Date.now();
+      sleepEnd = sleepStart + totalMin * 60000;
+      sleepHushed = false;
+      document.body.classList.add('night');
+      sleepTicker = setInterval(sleepTick, 15000);
+      nightPoke();
+      sleepTick();
+    }
+
+    function sleepDisarm() {
+      if (sleepTicker) clearInterval(sleepTicker);
+      sleepTicker = null;
+      sleepMode = false;
+      sleepHushed = false;
+      document.body.classList.remove('night', 'night-deep');
+      clearTimeout(nightIdle);
+    }
+
+    // Считаем от настенных часов, а не от числа тиков: систему можно
+    // свернуть, усыпить и притормозить — ночь всё равно пойдёт по кривой
+    function sleepTick() {
+      if (!sleepMode || paused || !anyActive()) return;
+      const total = (sleepEnd - sleepStart) / 60000;
+      const elapsed = (Date.now() - sleepStart) / 60000;
+      setMasterVolume(Math.max(0.0001, sleepGain(elapsed, total)), 16);
+      if (!sleepHushed && elapsed >= SLEEP_HUSH_AT) { sleepHushed = true; sleepHush(); }
+      if (document.body.classList.contains('night-deep')) renderVeil();
+    }
+
+    // Гром хорош, пока человек его слушает. Спящего он будит.
+    function sleepHush() {
+      let gone = false;
+      SOUNDS.forEach(s => {
+        if (!state[s.id].active || !SPIKY.has(s.id)) return;
+        state[s.id].active = false;
+        stopSound(s.id, 90);        // полторы минуты — исчезает незаметно
+        gone = true;
+      });
+      if (gone) { renderLayers(); refreshNow(); }
+    }
+
+    // ── Ночной экран. Свет — тоже звук, только для глаз ──
+    const veil = document.getElementById('night-veil');
+    let nightIdle = null;
+
+    function renderVeil() {
+      const l = label();
+      veil.querySelector('.nv-nm').textContent = l.sub || l.top;
+      const left = Math.max(0, sleepEnd - Date.now());
+      veil.querySelector('.nv-ds').textContent =
+        left > 60000 ? t('left') + ' ' + durText(left / 60000) : '';
+      veil.querySelector('.nv-hint').textContent = t('tapToWake');
+    }
+
+    function nightPoke() {
+      document.body.classList.remove('night-deep');
+      clearTimeout(nightIdle);
+      if (!sleepMode) return;
+      nightIdle = setTimeout(() => {
+        if (sleepMode && !paused && anyActive()) { renderVeil(); document.body.classList.add('night-deep'); }
+      }, 45000);
+    }
+    document.addEventListener('pointerdown', () => { if (sleepMode) nightPoke(); }, true);
 
     document.addEventListener('click', e => {
       if (!e.target.closest('.timer-wrap')) timerMenu.classList.remove('open');
@@ -2437,7 +3453,8 @@
     // ═══════════════════════════════════════════════════════════════
     document.getElementById('btn-share').addEventListener('click', () => {
       const p = new URLSearchParams();
-      SOUNDS.forEach(s => { if (state[s.id].active) p.set(s.id, Math.round(state[s.id].volume * 100)); });
+      const cm = currentMix();
+      Object.keys(cm).forEach(id => p.set(id, cm[id]));
       if (current && !current.name) { p.set('st', current.st); p.set('env', current.env); }
       const url = location.origin + location.pathname + (p.toString() ? '?' + p : '');
       if (navigator.clipboard?.writeText) {
@@ -2452,6 +3469,16 @@
       setTimeout(() => el.classList.remove('show'), 2500);
     }
 
+    // Обработчики локскрина регистрируются один раз — без переподписок
+    // на каждый апдейт (лишний повод для системы дёргать сессию)
+    if ('mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.setActionHandler('pause', () => pauseAll());
+        navigator.mediaSession.setActionHandler('play', () => resumeAll());
+        navigator.mediaSession.setActionHandler('stop', () => stopAll());
+      } catch (e) {}
+    }
+
     function updateMediaSession() {
       if (!('mediaSession' in navigator)) return;
       const playing = anyActive() && !paused;
@@ -2464,11 +3491,6 @@
           artist: t('brand'),
           album: l.top || t('brand')
         });
-        try {
-          navigator.mediaSession.setActionHandler('pause', pauseAll);
-          navigator.mediaSession.setActionHandler('play', resumeAll);
-          navigator.mediaSession.setActionHandler('stop', stopAll);
-        } catch (e) {}
       }
     }
 
@@ -2515,7 +3537,8 @@
     document.getElementById('hint-close').addEventListener('click', () => hideHint(true));
     document.getElementById('hint-open').addEventListener('click', () => {
       const p = new URLSearchParams();
-      SOUNDS.forEach(s => { if (state[s.id].active) p.set(s.id, Math.round(state[s.id].volume * 100)); });
+      const cm = currentMix();
+      Object.keys(cm).forEach(id => p.set(id, cm[id]));
       if (current && !current.name) { p.set('st', current.st); p.set('env', current.env); }
       if (IS_PRO) p.set('pro', '1');
       p.set('lang', lang);
@@ -2556,8 +3579,41 @@
       document.getElementById('pay-note').textContent  = t('payNote');
       document.getElementById('pay-close').textContent =
         accessNow() === 'free' ? t('payCloseFree') : t('payClose');
+
+      const rb = document.getElementById('pay-ref'), rn = document.getElementById('pay-ref-note');
+      rb.textContent = t('refCta');
+      rn.textContent = t('refLine');
+      rb.classList.toggle('on', canInvite());
+      rn.classList.toggle('hide', !canInvite());
+
       payBox.classList.add('open');
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  ПРИГЛАСИТЬ. У пейволла всегда два выхода: заплатить или позвать.
+    //  Второй честнее продаёт продукт, чем первый: человек ручается
+    //  за него своим именем. Дни разные — 14 позвавшему, 7 пришедшему:
+    //  тот, кто зовёт, тратит больше, а другу нужно ровно столько,
+    //  чтобы прожить неделю и понять, нужна ли ему Тишина.
+    // ═══════════════════════════════════════════════════════════════
+    const BOT_USER = 'Kingtsugi_music_bot';
+    const canInvite = () => !!UID;
+    const refLink = () => 'https://t.me/' + BOT_USER + '?start=ref' + UID;
+
+    function invite() {
+      if (!canInvite()) return;
+      hap('medium');
+      const url = 'https://t.me/share/url?url=' + encodeURIComponent(refLink()) +
+                  '&text=' + encodeURIComponent(t('refShare'));
+      if (TG?.openTelegramLink) { try { TG.openTelegramLink(url); return; } catch (e) {} }
+      // Вне Telegram делиться нечем — оставляем ссылку в буфере
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(refLink()).then(() => showToast(t('refCopied')), () => {});
+      } else showToast(t('refCopied'));
+    }
+
+    ['pay-ref', 'me-ref-btn'].forEach(id =>
+      document.getElementById(id).addEventListener('click', invite));
 
     const hidePaywall = () => payBox.classList.remove('open');
     document.getElementById('pay-close').addEventListener('click', hidePaywall);
@@ -2581,7 +3637,7 @@
     function applyLang() {
       document.documentElement.lang = lang;
       document.title = lang === 'ru' ? 'ТИШИНА' : 'TISHINA';
-      ['brand', 'brand2', 'brand3'].forEach(id => { document.getElementById(id).textContent = t('brand'); });
+      ['brand', 'brand2', 'brand3', 'brand4'].forEach(id => { document.getElementById(id).textContent = t('brand'); });
 
       const lb = document.getElementById('lang');
       lb.textContent = lang === 'ru' ? '🇺🇸' : '🪆';
@@ -2627,6 +3683,7 @@
 
       if (openedState && view === 'state') openState(stateById(openedState));
       if (view === 'tune') openTune();
+      if (view === 'me') openMe();
       refreshAll();
     }
 
@@ -2658,10 +3715,14 @@
         if (n > 0) { mix[s.id] = n; fromUrl = true; }
       });
 
+      // Сессию подхватываем, только если она ещё «та же». Вчерашний
+      // океан — это не «Сейчас», это повод предложить вернуться.
+      const RESUME_WINDOW = 6 * 3600000;
       let savedAtmo = null;
       if (!fromUrl) {
         const last = loadStore().last;
-        if (last && last.mix && Object.keys(last.mix).length) {
+        const fresh = !!(last && last.ts && Date.now() - last.ts < RESUME_WINDOW);
+        if (fresh && last.mix && Object.keys(last.mix).length) {
           mix = last.mix; ref = last.ref || null; savedAtmo = last.atmo || null;
           // «12 минут назад» на карточке — мостик обратно в состояние
           if (last.ts) {
@@ -2719,6 +3780,31 @@
     }
 
     // ── Dev-панель: ?dev=1 — новый / trial / истёк / deep ──
+    if (QS.get('dev') === '1') {
+      // Ночь длится восемь часов — проверять её иначе нечем
+      window.TISHINA = {
+        sleepGain, sleepTick, tillMorningMin, sleepGainAt: (e, tot) => sleepGain(e, tot),
+        get sleepMode() { return sleepMode; },
+        get master() { return masterVol; },
+        get elapsed() { return (Date.now() - sleepStart) / 60000; },
+        get total() { return (sleepEnd - sleepStart) / 60000; },
+        rewind(min) { sleepStart -= min * 60000; sleepEnd -= min * 60000; },
+        veil() { renderVeil(); document.body.classList.add('night-deep'); },
+        nightText: () => nightDefaultText(),
+        get layers() { return SOUNDS.filter(x => state[x.id].active).map(x => x.id); },
+        runEvent, currentMix, mixMatchesEnv, charName, charOf,
+        vol: id => state[id].volume,
+        base: id => baseVol[id],
+        cutoff: id => nodes[id] && nodes[id].chr ? Math.round(nodes[id].chr.frequency.value) : null,
+        busy: () => [...evtBusy],
+        breathe(n) { for (let i = 0; i < n; i++) { breathTick++; SOUNDS.forEach(s => {
+          if (!state[s.id].active || evtBusy.has(s.id)) return;
+          const b = breathOf(s.id), per = sleepMode ? b.p * 2 : b.p;
+          if ((breathTick + breathPhase[s.id]) % per !== 0) return;
+          setVolume(s.id, Math.min(0.98, Math.max(0.04, state[s.id].volume + (Math.random() - 0.5) * b.a)), 0.05);
+        }); } },
+      };
+    }
     if (QS.get('dev') === '1') {
       const dv = document.createElement('div');
       dv.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:900;display:flex;gap:4px;opacity:0.85';
