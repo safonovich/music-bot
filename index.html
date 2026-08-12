@@ -69,7 +69,8 @@
     #access-line.on { display: block; }
 
     .icon-btn {
-      width: 40px; height: 40px;
+      /* 44 — минимум, ниже которого палец начинает промахиваться */
+      width: 44px; height: 44px;
       flex-shrink: 0;
       border-radius: 50%;
       border: 1px solid var(--line);
@@ -184,6 +185,8 @@
     .btn {
       flex: 1;
       padding: 12px 4px;
+      min-height: 44px;
+      display: flex; align-items: center; justify-content: center;
       border: 1px solid var(--line);
       border-radius: 13px;
       font-size: 12.5px;
@@ -603,7 +606,7 @@
     .detail-toggle {
       display: block;
       margin: 16px auto 0;
-      padding: 9px 20px;
+      padding: 13px 22px;
       border: 1px solid var(--line);
       border-radius: 18px;
       background: transparent;
@@ -1248,16 +1251,54 @@
     }
 
     const QS = new URLSearchParams(location.search);
-    const UID = TG?.initDataUnsafe?.user?.id || 0;
+
+    // ═══════════════════════════════════════════════════════════
+    //  РЕЖИМ АУДИТА — ?audit=1
+    //
+    //  Нужен, чтобы внешний человек мог пройти приложение в обычном
+    //  браузере, без Telegram и без оплаты. Это не копия и не прототип:
+    //  ниже нет ни одной ветки, которая рисовала бы что-то своё.
+    //  Флаг только снимает привязку к Telegram, подставляет
+    //  фиксированный тестовый профиль и задаёт уровень доступа.
+    //  Весь остальной код — тот же самый, что работает в бою.
+    //
+    //  ?audit=1&access=deep|trial|free|fresh  — какой уровень показать
+    //  ?audit=1&hour=23                       — подменить час для рекомендаций
+    //  ?audit=1&seed=1                        — наполнить журнал, чтобы
+    //                                           «Моя Тишина» была не пустой
+    //  ?audit=1&debug=1                       — техническая панель
+    // ═══════════════════════════════════════════════════════════
+    // Положена ли этому человеку символическая цена первого месяца.
+    // Решает бот — он один знает, платил ли человек раньше, — и передаёт
+    // ответ в адресе рядом со счётом. Писать «1 ★» тому, с кого спишется
+    // полная цена, нельзя ни при каких обстоятельствах.
+    const FIRST_MONTH = QS.get('first') === '1';
+
+    const AUDIT = QS.get('audit') === '1';
+    const AUDIT_UID = 900000001;
+    const AUDIT_ACCESS = AUDIT ? (QS.get('access') || 'deep') : null;
+
+    const UID = TG?.initDataUnsafe?.user?.id || (AUDIT ? AUDIT_UID : 0);
     const PRO_KEY = 'tishina_pro';
 
     const IS_PRO = (() => {
+      if (AUDIT) return AUDIT_ACCESS === 'deep';
       const f = QS.get('pro');
       if (f === '1') { try { localStorage.setItem(PRO_KEY, String(UID)); } catch (e) {} return true; }
       if (f === '0') { try { localStorage.removeItem(PRO_KEY); } catch (e) {} return false; }
       try { const s = localStorage.getItem(PRO_KEY); if (s !== null && String(UID) === s) return true; } catch (e) {}
       return false;
     })();
+
+    // Час берётся здесь, а не напрямую из Date, чтобы в аудите можно было
+    // проверить рекомендации утра, дня и ночи, не дожидаясь ночи.
+    const nowHour = () => {
+      if (AUDIT && QS.get('hour') !== null) {
+        const h = parseInt(QS.get('hour'), 10);
+        if (!isNaN(h)) return Math.max(0, Math.min(23, h));
+      }
+      return new Date().getHours();
+    };
 
     // ═══════════════════════════════════════════════════════════
     //  Доступ: сначала опыт, потом ценность, потом подписка.
@@ -1271,6 +1312,13 @@
     const TRIALEND_KEY = 'tishina_trialend_seen';
 
     function trialStartTs() {
+      // В аудите отсчёт не хранится, а вычисляется из адреса: так аудитор
+      // видит любое состояние доступа сразу, не подделывая localStorage.
+      if (AUDIT) {
+        if (AUDIT_ACCESS === 'trial') return Date.now() - 3600 * 1000;
+        if (AUDIT_ACCESS === 'free')  return Date.now() - TRIAL_MS - 1000;
+        return null;
+      }
       try {
         const d = JSON.parse(localStorage.getItem(TRIAL_KEY));
         if (d && d.uid === UID && d.start) return d.start;
@@ -1278,15 +1326,50 @@
       return null;
     }
 
+    // Ответ бота о настоящем доступе. Пока его нет — работаем по-старому,
+    // от флага в адресе и памяти браузера: приложение должно открываться
+    // и без связи с сервером, просто менее точно.
+    let serverAccess = null;
+    let serverFirstMonth = null;
+
     function accessNow() {
+      if (serverAccess) return serverAccess;
       if (IS_PRO) return 'deep';
       const ts = trialStartTs();
       if (!ts) return 'fresh';
       return Date.now() < ts + TRIAL_MS ? 'trial' : 'free';
     }
 
+    // Единственный источник правды о доступе — база бота. Локальная память
+    // остаётся только запасным вариантом на случай, когда сервер молчит.
+    async function syncAccess() {
+      const init = TG?.initData;
+      if (!init || AUDIT) return;
+      try {
+        const r = await fetch('/api/access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'init_data=' + encodeURIComponent(init),
+        });
+        if (!r.ok) return;
+        const d = await r.json();
+        if (!d.ok) return;
+        const was = accessNow();
+        serverAccess = d.access;
+        serverFirstMonth = !!d.first_month;
+        // Память браузера приводим в соответствие: она пригодится,
+        // если в следующий раз сервер окажется недоступен
+        try {
+          if (d.access === 'deep') localStorage.setItem(PRO_KEY, String(UID));
+          else localStorage.removeItem(PRO_KEY);
+        } catch (e) {}
+        if (accessNow() !== was) { renderStates(); refreshAll(); refreshAccessLine(); }
+      } catch (e) {}
+    }
+
     // Отсчёт начинается не с открытия, а с первого запуска состояния
     function startTrialIfNeeded() {
+      if (AUDIT) return;   // уровень доступа в аудите задан адресом
       if (IS_PRO || trialStartTs()) return;
       try { localStorage.setItem(TRIAL_KEY, JSON.stringify({ uid: UID, start: Date.now() })); } catch (e) {}
       setTimeout(() => showToast(t('trialWelcome')), 1600);
@@ -1337,9 +1420,9 @@
         accessTrial: 'Глубокая тишина · сегодня доступно всё',
         accessEnding: 'Ваша глубокая тишина заканчивается сегодня',
         payCtx: 'Это часть глубокой тишины.',
-        payExpired: 'Вы уже знаете, как звучит ваша тишина. Пробные 24 часа закончились — всё, что вы слышали, живёт в полной версии.',
+        payExpired: 'Вы уже знаете, как звучит ваша тишина. Сутки закончились — бесплатные звуки остаются с вами, а всё остальное можно оставить себе за одну звезду.',
         payCloseFree: 'Вернуться к бесплатным звукам',
-        payCtaDeep: 'Открыть глубокую тишину · 90 ★',
+        payCtaDeep: 'Оставить ТИШИНУ себе · первый месяц 1 ★',
         start: 'Начать', noTimer: 'Без таймера', tillMorning: 'До утра',
         fitted: 'Подобрали совместимую громкость',
         tuneTitle: 'Подстроить пространство', headAtmo: 'Глубина состояния',
@@ -1363,8 +1446,10 @@
           ['32 звука и свои миксы', 'Собрать своё и сохранить'],
           ['Ночь целиком', 'Звук ведёт ко сну и растворяется сам к утру'],
         ],
-        payCta: 'Открыть за 90 ★',
-        payNote: 'Разовый платёж на 30 дней. Без автосписания — напомним, когда закончится.',
+        payCta: 'Первый месяц · 1 ★',
+        payCtaAgain: 'Открыть на 30 дней · 90 ★',
+        payNote: 'Первый месяц — 1 ★. Дальше 90 ★ в месяц. Списаний без вашего согласия не будет: напомним за три дня до конца, и вы решите сами.',
+        payNoteAgain: '90 ★ за 30 дней. Автосписания нет — напомним за три дня до конца, и вы решите сами.',
         payClose: 'Позже',
         payNoLink: 'Оплата открывается из бота — напишите ему /start',
         hintText: 'Похоже, система прервала звук, когда экран погас. Мы включили его снова. Если это повторится — <b>откройте в браузере</b>: там звук не прерывается.',
@@ -1431,9 +1516,9 @@
         accessTrial: 'Deep silence · everything is open today',
         accessEnding: 'Your deep silence ends today',
         payCtx: 'This is part of deep silence.',
-        payExpired: 'You already know how your silence sounds. The 24 trial hours are over — everything you heard lives in the full version.',
+        payExpired: 'You already know how your silence sounds. The 24 hours are over — free sounds stay with you, and everything else can be yours for one star.',
         payCloseFree: 'Back to the free sounds',
-        payCtaDeep: 'Open deep silence · 90 ★',
+        payCtaDeep: 'Keep TISHINA · first month 1 ★',
         start: 'Start', noTimer: 'No timer', tillMorning: 'Till morning',
         fitted: 'Balanced it into the atmosphere',
         tuneTitle: 'Tune the space', headAtmo: 'Depth of state',
@@ -1457,8 +1542,10 @@
           ['32 sounds, your own mixes', 'Build yours and save it'],
           ['The whole night', 'Sound carries you to sleep and dissolves by morning'],
         ],
-        payCta: 'Unlock for 90 ★',
-        payNote: 'One-time payment for 30 days. No auto-renewal — we will remind you when it ends.',
+        payCta: 'First month · 1 ★',
+        payCtaAgain: 'Unlock 30 days · 90 ★',
+        payNote: 'First month — 1 ★. Then 90 ★ per month. Nothing is charged without you: we remind three days before it ends and you decide.',
+        payNoteAgain: '90 ★ for 30 days. No auto-renewal — we remind three days before it ends and you decide.',
         payClose: 'Later',
         payNoLink: 'Payment opens from the bot — send it /start',
         hintText: 'It looks like the system interrupted the sound when the screen went dark. We brought it back. If it happens again — <b>open in a browser</b>: playback is never interrupted there.',
@@ -1975,7 +2062,12 @@
       return d + ' ' + t('dayAgo');
     }
 
-    const FADE = 0.4, SCENE_FADE = 2.5, TIMER_FADE = 30;
+    // Все времена переходов в одном месте, чтобы они не расходились.
+    // LEAVE длиннее FADE намеренно: уходить из пространства должно быть
+    // так же плавно, как в него входить. Раньше выход занимал 0.4 с —
+    // на фоне двух с половиной секунд входа это читалось как обрыв.
+    const FADE = 0.4, LAYER_FADE = 1.2, LEAVE_FADE = 1.4,
+          SCENE_FADE = 2.5, TIMER_FADE = 30;
 
     // ═══════════════════════════════════════════════════════════════
     //  Аудиодвижок — без изменений, он и так работает бесшовно
@@ -2381,7 +2473,7 @@
     };
 
     function momentNow() {
-      const hr = new Date().getHours();
+      const hr = nowHour();
       let m = MOMENTS[0];
       MOMENTS.forEach(x => { if (hr >= x.from) m = x; });
       return m;
@@ -2391,7 +2483,7 @@
     // а не заставляет выбирать даже состояние.
     function suggestNow() {
       const mo = momentNow();
-      const habit = memHabit(new Date().getHours());
+      const habit = memHabit(nowHour());
       const id = habit && stateById(habit) ? habit : mo.st;
       const when = habit && habit !== mo.st
         ? (lang === 'ru' ? 'обычно вы здесь в это время' : 'usually where you are at this hour')
@@ -2743,10 +2835,11 @@
       saveLast();
       refreshAll();
       if (!stay) showView('now');
-      if (!full && !IS_PRO) {
-        // Сначала человек слышит урезанную версию и понимает, чего не хватает
-        setTimeout(() => { if (current && current.st === st.id && current.env === env.id) showPaywall('lock'); }, 2500);
-      }
+      // Раньше здесь стоял таймер, который через 45 секунд после запуска
+      // накрывал играющую среду экраном подписки. Убран совсем: перебивать
+      // человека внутри состояния нельзя, тем более во сне или медитации.
+      // Предложение остаётся там, где оно уместно, — когда человек сам
+      // тянется к закрытому слою, и один раз при окончании суток доступа.
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -2837,7 +2930,7 @@
 
     function stopAll() {
       memEnd();
-      SOUNDS.forEach(s => { if (state[s.id].active) { state[s.id].active = false; stopSound(s.id); } });
+      SOUNDS.forEach(s => { if (state[s.id].active) { state[s.id].active = false; stopSound(s.id, LEAVE_FADE); } });
       current = null;
       paused = false;
       clearMixHighlight();
@@ -3076,10 +3169,12 @@
         baseVol[id] = v;
         state[id].volume = Math.min(1, v * atmoMult(id));
         if (fit < 0.85) showToast(t('fitted'));
-        startSound(id);
+        // Слой должен проступить, а не включиться: в составе среды он
+        // появляется за две с половиной секунды, руками — за столько же по духу
+        startSound(id, LAYER_FADE);
         if (paused) resumeAll();
       }
-      else stopSound(id);
+      else stopSound(id, LAYER_FADE);
       if (!anyActive()) { current = null; cancelTimer(); }
       clearMixHighlight();
       scheduleSave();
@@ -3603,9 +3698,14 @@
         mode === 'expired' ? t('payExpired')
         : mode === 'lock' ? t('payCtx') + ' ' + t('paySub')
         : t('paySub');
+      // Цена на кнопке всегда та, которую человек реально заплатит.
+      // Символическую видит только тот, кому её действительно откроет бот.
+      const firstMonth = serverFirstMonth === null ? FIRST_MONTH : serverFirstMonth;
       document.getElementById('pay-cta').textContent =
-        accessNow() === 'free' ? t('payCtaDeep') : t('payCta');
-      document.getElementById('pay-note').textContent  = t('payNote');
+        !firstMonth ? t('payCtaAgain')
+        : accessNow() === 'free' ? t('payCtaDeep') : t('payCta');
+      document.getElementById('pay-note').textContent =
+        firstMonth ? t('payNote') : t('payNoteAgain');
       document.getElementById('pay-close').textContent =
         accessNow() === 'free' ? t('payCloseFree') : t('payClose');
 
@@ -3654,8 +3754,10 @@
         if (status === 'paid') {
           hidePaywall();
           showToast('✓ Premium');
-          try { localStorage.setItem(PRO_KEY, String(UID)); } catch (e) {}
-          setTimeout(() => location.reload(), 900);
+          // Раньше здесь выдавался доступ навсегда, без даты окончания.
+          // Теперь спрашиваем бота: он один знает, на сколько именно
+          // оплачено и когда это кончится.
+          syncAccess().finally(() => setTimeout(() => location.reload(), 900));
         }
       });
     });
@@ -3782,12 +3884,19 @@
     })();
 
     // ── Статус доступа: тихо, без обратного отсчёта ──
+    // Сутки полного доступа — это подарок, а не обратный отсчёт. Поэтому
+    // строка живёт только в двух местах: в начале, чтобы человек один раз
+    // спокойно узнал, что ему открыто, и в конце, чтобы смена не стала
+    // неожиданностью. Всё время между ними приложение молчит и не напоминает
+    // о деньгах — там человек занят тем, ради чего пришёл.
     function refreshAccessLine() {
       const el = document.getElementById('access-line');
-      const a = accessNow();
-      if (a !== 'trial') { el.classList.remove('on'); return; }
+      if (accessNow() !== 'trial') { el.classList.remove('on'); return; }
+      const started = Date.now() - trialStartTs();
       const left = trialStartTs() + TRIAL_MS - Date.now();
-      el.textContent = left < 6 * 3600000 ? t('accessEnding') : t('accessTrial');
+      if (left < 6 * 3600000)      el.textContent = t('accessEnding');
+      else if (started < 3600000)  el.textContent = t('accessTrial');
+      else { el.classList.remove('on'); return; }
       el.classList.add('on');
     }
     setInterval(refreshAccessLine, 60000);
@@ -3796,16 +3905,160 @@
     renderMixes();
     showView('now');
     refreshAccessLine();
+    syncAccess();
 
     // Пробная тишина закончилась — говорим об этом один раз, мягко,
     // и человек остаётся с бесплатными звуками, а не перед стеной
     if (accessNow() === 'free') {
       let seen = null;
-      try { seen = localStorage.getItem(TRIALEND_KEY); } catch (e) {}
+      // В аудите не запоминаем показ: иначе экран увидят один раз,
+      // а после перезагрузки он больше не появится и его сочтут отсутствующим.
+      try { seen = AUDIT ? null : localStorage.getItem(TRIALEND_KEY); } catch (e) {}
       if (!seen) {
-        try { localStorage.setItem(TRIALEND_KEY, '1'); } catch (e) {}
-        setTimeout(() => showPaywall('expired'), 1200);
+        // Не поверх звучащего пространства: человек мог вернуться в приложение
+        // посреди сна или медитации. Тогда разговор откладывается до момента,
+        // когда он сам остановится, — этот же экран покажется при следующем входе.
+        setTimeout(() => {
+          if (anyActive() && !paused) return;
+          if (!AUDIT) { try { localStorage.setItem(TRIALEND_KEY, '1'); } catch (e) {} }
+          showPaywall('expired');
+        }, 1200);
       }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Аудит: прямые ссылки на экраны — ?audit=1&screen=…
+    //
+    //  Ничего не рисует и не создаёт. Дёргает ровно те же функции,
+    //  которые вызывают обработчики нажатий: openState, playEnv,
+    //  openTune, openMe, showPaywall, и настоящий click по кнопке
+    //  таймера. То есть приложение приходит на экран тем же путём,
+    //  что и от руки человека, — просто без самих нажатий.
+    //
+    //  Идентификаторы взяты из кода как есть: экраны now / state /
+    //  tune / me / pay, состояния focus read unwind meditate breath
+    //  move sleep place, среды — их собственные id.
+    // ═══════════════════════════════════════════════════════════════
+    if (AUDIT && QS.get('screen')) {
+      const ALIAS = {                       // синонимы для удобства, экранов не добавляют
+        home: 'now', settings: 'tune', 'my-tishina': 'me',
+        mytishina: 'me', paywall: 'pay', deep: 'pay',
+      };
+      const scr = (QS.get('screen') || '').toLowerCase();
+      const view = ALIAS[scr] || scr;
+      const st = stateById(QS.get('state') || '');
+      const env = st && (st.envs.find(e => e.id === QS.get('scene')) || st.envs[0]);
+
+      // Экран ждёт, пока приложение договорит свою обычную инициализацию
+      setTimeout(() => {
+        if (view === 'state' && st) { openState(st, false); return; }
+        if (view === 'me')  { openMe(); return; }
+        if (view === 'pay') { showPaywall(accessNow() === 'free' ? 'expired' : 'lock'); return; }
+        if (view === 'now' && st && env) { playEnv(st, env, envFull(env)); return; }
+        if (view === 'tune') {
+          // Настраивать нечего, пока ничего не звучит: сначала запускаем
+          // среду ровно так же, как это делает человек, потом открываем настройку
+          if (st && env) playEnv(st, env, envFull(env));
+          setTimeout(openTune, 350);
+          return;
+        }
+        if (view === 'timer') {
+          if (st && env) playEnv(st, env, envFull(env));
+          setTimeout(() => btnTimer.click(), 350);   // настоящее нажатие той же кнопки
+          return;
+        }
+        // now без состояния и всё остальное — это и есть первый экран
+        showView('now');
+      }, 60);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Аудит: наполнение журнала — ?audit=1&seed=1
+    //  «Моя Тишина» считается из журнала сессий. У чистого браузера он
+    //  пуст, и аудитор увидит честное пустое состояние. Если нужен экран
+    //  с данными — этот флаг раскладывает две недели правдоподобной
+    //  истории. Ничего не рисует: пишет ровно те записи, которые
+    //  приложение пишет само во время обычной работы.
+    // ═══════════════════════════════════════════════════════════════
+    if (AUDIT && QS.get('seed') === '1' && !memLoad().s.length) {
+      const plan = [
+        ['focus', 'deep', 52], ['focus', 'cafe', 41], ['read', 'window', 33],
+        ['sleep', 'ocean', 74], ['unwind', 'fire', 26], ['meditate', 'bowl', 19],
+        ['focus', 'even', 63], ['breath', 'water', 22], ['sleep', 'night', 88],
+        ['read', 'hearth', 37], ['focus', 'deep', 47], ['place', 'paris', 29],
+        ['meditate', 'park', 24], ['sleep', 'ocean', 66], ['focus', 'deep', 55],
+      ];
+      const m = memLoad();
+      plan.forEach(([st, env, mins], i) => {
+        const day = 13 - i;                       // от двух недель назад к сегодня
+        const hour = st === 'sleep' ? 23 : st === 'focus' ? 10 + (i % 4) : 17 + (i % 3);
+        const d = new Date();
+        d.setDate(d.getDate() - day);
+        d.setHours(hour, (i * 7) % 60, 0, 0);
+        const ts = d.getTime();
+        m.s.push({ t: ts, d: dayKey(ts), st, env, mx: '', m: mins });
+      });
+      m.s.sort((a, b) => a.t - b.t);
+      memSave(m);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Аудит: техническая панель — ?audit=1&debug=1
+    //  Только чтение. Ничего не меняет в приложении, по умолчанию
+    //  свёрнута в узкую полоску, разворачивается щелчком.
+    // ═══════════════════════════════════════════════════════════════
+    if (AUDIT && QS.get('debug') === '1') {
+      const box = document.createElement('div');
+      box.id = 'audit-debug';
+      box.style.cssText = 'position:fixed;left:0;bottom:0;z-index:9999;max-width:min(94vw,420px);' +
+        'font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:#9ad;' +
+        'background:rgba(6,10,16,0.94);border:1px solid #1d2a3a;border-left:0;border-bottom:0;' +
+        'border-radius:0 8px 0 0;backdrop-filter:blur(6px);user-select:text;';
+      const head = document.createElement('div');
+      head.style.cssText = 'padding:5px 10px;cursor:pointer;color:#5f7f9f;letter-spacing:0.04em;';
+      head.textContent = 'debug ▸';
+      const body = document.createElement('div');
+      body.style.cssText = 'display:none;padding:0 10px 9px;white-space:pre;overflow:auto;max-height:60vh;';
+      box.appendChild(head); box.appendChild(body); document.body.appendChild(box);
+      let open = false;
+      head.addEventListener('click', () => {
+        open = !open;
+        body.style.display = open ? 'block' : 'none';
+        head.textContent = open ? 'debug ▾' : 'debug ▸';
+      });
+
+      const fmt = s => { s = Math.max(0, s || 0); const m = Math.floor(s / 60); return m + ':' + String(Math.floor(s % 60)).padStart(2, '0'); };
+      const db = v => (v > 0 ? (20 * Math.log10(v)).toFixed(1) : '-inf');
+
+      setInterval(() => {
+        if (!open) return;
+        const L = [];
+        L.push('state   ' + (current ? current.st || '—' : '—') +
+               '   scene ' + (current ? current.env || '—' : '—'));
+        L.push('mix     ' + (current && current.name ? current.name : '—') +
+               (paused ? '   [PAUSED]' : anyActive() ? '   [PLAYING]' : '   [IDLE]'));
+        L.push('access  ' + accessNow() + '   master ' + masterVol.toFixed(2) + ' (' + db(masterVol) + ' dB)');
+        L.push('audio   ' + (ctx ? ctx.state + ' @' + ctx.sampleRate + 'Hz' : 'элемент без Web Audio'));
+        L.push('');
+        const act = SOUNDS.filter(s => state[s.id].active);
+        if (!act.length) L.push('слоёв не запущено');
+        act.forEach(s => {
+          const el = els[s.id], n = nodes[s.id];
+          const gain = n ? n.gain.gain.value : (el ? el.volume : 0);
+          const file = el ? decodeURIComponent((el.currentSrc || el.src).split('/').pop()) : '—';
+          L.push(s.id.padEnd(11) + file);
+          L.push('  vol ' + state[s.id].volume.toFixed(2).padEnd(6) +
+                 'gain ' + gain.toFixed(3).padEnd(7) + db(gain) + ' dB' +
+                 (fades[s.id] ? '  fade↔' : '') +
+                 (evtBusy.has(s.id) ? '  event' : ''));
+          L.push('  t ' + fmt(el && el.currentTime) + ' / ' + fmt(el && el.duration) +
+                 '   loop ' + (el && el.loop ? 'on' : 'OFF') +
+                 '   ' + (el ? (el.paused ? 'paused' : 'playing') : '—') +
+                 '   buf ' + (el && el.buffered && el.buffered.length
+                   ? Math.round(el.buffered.end(el.buffered.length - 1)) + 's' : '0s'));
+        });
+        body.textContent = L.join('\n');
+      }, 250);
     }
 
     // ── Dev-панель: ?dev=1 — новый / trial / истёк / deep ──
