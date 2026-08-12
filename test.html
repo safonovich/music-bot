@@ -1596,7 +1596,7 @@
 
     // Версия звуковых файлов. Поднимается автоматически при каждой
     // заливке через «ОБНОВИТЬ ЗВУКИ.command»; вручную трогать не нужно.
-    const SND_V = 3;
+    const SND_V = 4;
 
     const SOUNDS = CATS.flatMap(c => c.sounds.map(s => ({ ...s, cat: c.id, file: s.id + '.mp3' })));
     const byId = id => SOUNDS.find(x => x.id === id);
