@@ -1383,7 +1383,7 @@
         names: {
           rain:'Дождь', thunder:'Гром', waves:'Волны', wind:'Ветер', fire:'Огонь', birds:'Птицы',
           cafe:'Кафе', office:'Офис', street:'Улица', shop:'Магазин',
-          park:'Парк', crowd:'Голоса', window:'Дождь в окно', hearth:'Камин', leaves:'Листья',
+          park:'Лес', crowd:'Голоса', window:'Дождь в окно', hearth:'Камин', leaves:'Листья', stream:'Ручей',
           highway:'Трасса', airport:'Аэропорт',
           plane:'Самолёт', car:'Машина', train:'Поезд', metro:'Метро', bus:'Автобус', boat:'Лодка',
           handpan:'Хендпан',
@@ -1477,7 +1477,7 @@
         names: {
           rain:'Rain', thunder:'Thunder', waves:'Waves', wind:'Wind', fire:'Fire', birds:'Birds',
           cafe:'Cafe', office:'Office', street:'Street', shop:'Shop',
-          park:'Park', crowd:'Voices', window:'Rain on window', hearth:'Fireplace', leaves:'Leaves',
+          park:'Forest', crowd:'Voices', window:'Rain on window', hearth:'Fireplace', leaves:'Leaves', stream:'Stream',
           highway:'Highway', airport:'Airport',
           plane:'Plane', car:'Car', train:'Train', metro:'Metro', bus:'Bus', boat:'Boat',
           handpan:'Handpan',
@@ -1510,7 +1510,8 @@
 
       cafe:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h13v5a4.5 4.5 0 0 1-4.5 4.5h-4A4.5 4.5 0 0 1 4 14z"/><path d="M17 10.5h1.6a2.2 2.2 0 0 1 0 4.4H17"/><path d="M7 5.5c.6-.8.6-1.4 0-2.2M11 5.5c.6-.8.6-1.4 0-2.2" opacity="0.6"/><path d="M3 21h15"/></svg>',
       shop:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18l-1.4 12.2a1.8 1.8 0 0 1-1.8 1.6H6.2a1.8 1.8 0 0 1-1.8-1.6z"/><path d="M8.5 10V6a3.5 3.5 0 0 1 7 0v4"/></svg>',
-      park:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 7.5 11h9z"/><path d="M12 8 8 15h8z"/><path d="M12 15v5.5"/><path d="M4 20.5h16" opacity="0.5"/></svg>',
+      park:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 8 9h8z"/><path d="M12 7 8.5 13.5h7z"/><path d="M12 13.5V20"/><path d="M5 8.5 2.5 13h5z" opacity="0.55"/><path d="M5 13v7" opacity="0.55"/><path d="M19 8.5 16.5 13h5z" opacity="0.55"/><path d="M19 13v7" opacity="0.55"/></svg>',
+      stream:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7c3-2 6 2 9 0s6-2 9 0"/><path d="M3 12c3-2 6 2 9 0s6-2 9 0" opacity="0.7"/><path d="M3 17c3-2 6 2 9 0s6-2 9 0" opacity="0.4"/></svg>',
       leaves:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18.5 5.5c0 7-5 10.5-10 10.5-2 0-3.5-.6-3.5-.6s1-6.5 6-9c3-1.5 7.5-.9 7.5-.9z"/><path d="M9 16c1.5-3.5 4-6 7-7.5" opacity="0.55"/><path d="M4 20c1.2-1.6 2.4-2.8 3.6-3.7" opacity="0.4"/></svg>',
       crowd:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.6"/><circle cx="16" cy="9" r="2.2" opacity="0.7"/><path d="M3 19c0-2.8 2.2-5 5-5s5 2.2 5 5"/><path d="M14 19c0-2.4 1.8-4.2 4-4.2s3 1.4 3 3.4" opacity="0.7"/></svg>',
       highway:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21 10 3M17 21 14 3"/><path d="M12 6.5v3M12 12v3M12 17.5v3" opacity="0.7"/></svg>',
@@ -1575,6 +1576,8 @@
         // Единственный слой библиотеки с настоящим воздухом: 61 % энергии
         // выше 4 кГц. Всё остальное там пустое — отсюда была общая глухота.
         { id:'leaves', def:0.35 },
+        // Второй источник настоящего воздуха: 35 % энергии выше 4 кГц.
+        { id:'stream', def:0.38 },
         { id:'window', def:0.55 }, { id:'hearth', def:0.50 },
       ]},
       { id: 'transport', sounds: [
@@ -1596,7 +1599,7 @@
 
     // Версия звуковых файлов. Поднимается автоматически при каждой
     // заливке через «ОБНОВИТЬ ЗВУКИ.command»; вручную трогать не нужно.
-    const SND_V = 4;
+    const SND_V = 5;
 
     const SOUNDS = CATS.flatMap(c => c.sounds.map(s => ({ ...s, cat: c.id, file: s.id + '.mp3' })));
     const byId = id => SOUNDS.find(x => x.id === id);
@@ -1621,10 +1624,14 @@
       office:    { band:'mid',  warm: 0.2, alive:-0.1 },
       street:    { band:'mid',  warm:-0.4, alive: 0.6 },
       shop:      { band:'mid',  warm:-0.3, alive: 0.6 },
-      park:      { band:'mid',  warm:-0.5, alive: 0.4 },
+      park:      { band:'high', warm:-0.4, alive: 0.5 },
       leaves:    { band:'high', warm:-0.4, alive: 0.3 },
+      stream:    { band:'high', warm:-0.2, alive: 0.2 },
       crowd:     { band:'mid',  warm:-0.2, alive: 0.8 },
-      window:    { band:'high', warm: 0.4, alive:-0.2 },
+      // Не 'high': дождь по стеклу это не открытый дождь. Стекло срезает
+      // верх и оставляет тело и удары капель — если поднять его фильтром
+      // в ту же полосу, где живёт rain, они сольются в один общий шум.
+      window:    { band:'mid',  warm: 0.4, alive:-0.2 },
       hearth:    { band:'mid',  warm: 1.0, alive:-0.2 },
       highway:   { band:'low',  warm:-0.3, alive: 0.5 },
       airport:   { band:'mid',  warm:-0.5, alive: 0.3 },
@@ -1743,7 +1750,7 @@
           // не потерялась история и любимые среды.
           { id:'bowl',  ru:'Глубокий покой',   en:'Deep Calm',     mix:{ choir:38, leaves:26, rain:22, waves:16 } },
           { id:'theta', ru:'Медленный вдох',   en:'Slow Breath',   mix:{ glow:34, rain:24, waves:18, birds:12, leaves:12 } },
-          { id:'park',  ru:'Утро в парке',     en:'Morning Park',  mix:{ park:40, birds:30, leaves:18, wind:12 } },
+          { id:'park',  ru:'Утро в лесу',      en:'Morning Forest',mix:{ park:46, birds:18, leaves:20, wind:16 } },
         ]},
 
       { id:'breath', ic:'breath', dur:[15, 30],
@@ -1751,8 +1758,8 @@
         fx:{ ru:'Плавный ритм, за которым удобно дышать и двигаться', en:'A flowing rhythm that carries breath and movement' },
         en:['Breath and Body', 'qigong · yoga · steady rhythm · breath as anchor'],
         envs: [
-          { id:'dawn',  ru:'Рассвет в парке',  en:'Park at Dawn',  mix:{ park:40, birds:26, leaves:20, wind:14 } },
-          { id:'water', ru:'У воды',           en:'By the Water',  mix:{ waves:46, wind:28, boat:20 } },
+          { id:'dawn',  ru:'Рассвет в лесу',   en:'Forest at Dawn',mix:{ park:46, birds:16, leaves:22, wind:16 } },
+          { id:'water', ru:'У воды',           en:'By the Water',  mix:{ waves:40, stream:24, wind:22, boat:14 } },
           { id:'earth', ru:'Дыхание земли',    en:'Breath of the Earth', mix:{ choir:34, deepnoise:28, wind:22 } },
         ]},
 
