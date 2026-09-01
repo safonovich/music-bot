@@ -946,6 +946,17 @@
       cursor: pointer; transition: transform 0.1s;
     }
     .pay-cta:active { transform: scale(0.98); }
+    /* Второй способ оплаты, а не второе предложение: та же форма,
+       но контуром, чтобы не спорить с главной кнопкой за внимание. */
+    .pay-alt {
+      width: 100%; margin-top: 9px; padding: 13px 0;
+      border: 1px solid var(--line); border-radius: 14px;
+      background: transparent; color: var(--text);
+      font-size: 13.5px; font-weight: 500; font-family: inherit;
+      cursor: pointer; transition: transform 0.1s, border-color 0.25s;
+    }
+    .pay-alt:active { transform: scale(0.98); }
+    .pay-alt.hide { display: none; }
     .pay-note { text-align: center; font-size: 11px; color: var(--text-dim); margin-top: 11px; line-height: 1.4; }
     .pay-close {
       display: block; width: 100%; margin-top: 14px; padding: 10px 0;
@@ -1224,6 +1235,7 @@
       <div class="pay-sub" id="pay-sub"></div>
       <div class="pay-list" id="pay-list"></div>
       <button class="pay-cta" id="pay-cta"></button>
+      <button class="pay-alt hide" id="pay-card"></button>
       <div class="pay-note" id="pay-note"></div>
       <button class="ref-btn" id="pay-ref"></button>
       <div class="ref-line hide" id="pay-ref-note"></div>
@@ -1273,6 +1285,10 @@
     // ответ в адресе рядом со счётом. Писать «1 ★» тому, с кого спишется
     // полная цена, нельзя ни при каких обстоятельствах.
     const FIRST_MONTH = QS.get('first') === '1';
+    // Счёт картой. Именно у карты есть автопродление, поэтому для модели
+    // «первый месяц дёшево, дальше обычная цена сама» это основной путь.
+    // Звёзды остаются для тех, у кого российской карты нет.
+    const INVOICE_CARD = QS.get('invcard') || '';
 
     const AUDIT = QS.get('audit') === '1';
     const AUDIT_UID = 900000001;
@@ -1448,6 +1464,8 @@
         ],
         payCta: 'Первый месяц · 1 ★',
         payCtaAgain: 'Открыть на 30 дней · 90 ★',
+        payCard: 'Картой · первый месяц 1 ₽',
+        payCardAgain: 'Картой · 30 дней за 90 ₽',
         payNote: 'Первый месяц — 1 ★. Дальше 90 ★ в месяц. Списаний без вашего согласия не будет: напомним за три дня до конца, и вы решите сами.',
         payNoteAgain: '90 ★ за 30 дней. Автосписания нет — напомним за три дня до конца, и вы решите сами.',
         payClose: 'Позже',
@@ -1544,6 +1562,8 @@
         ],
         payCta: 'First month · 1 ★',
         payCtaAgain: 'Unlock 30 days · 90 ★',
+        payCard: 'Card · first month 1 ₽',
+        payCardAgain: 'Card · 30 days for 90 ₽',
         payNote: 'First month — 1 ★. Then 90 ★ per month. Nothing is charged without you: we remind three days before it ends and you decide.',
         payNoteAgain: '90 ★ for 30 days. No auto-renewal — we remind three days before it ends and you decide.',
         payClose: 'Later',
@@ -1686,7 +1706,7 @@
 
     // Версия звуковых файлов. Поднимается автоматически при каждой
     // заливке через «ОБНОВИТЬ ЗВУКИ.command»; вручную трогать не нужно.
-    const SND_V = 5;
+    const SND_V = 6;
 
     const SOUNDS = CATS.flatMap(c => c.sounds.map(s => ({ ...s, cat: c.id, file: s.id + '.mp3' })));
     const byId = id => SOUNDS.find(x => x.id === id);
@@ -3706,6 +3726,10 @@
         : accessNow() === 'free' ? t('payCtaDeep') : t('payCta');
       document.getElementById('pay-note').textContent =
         firstMonth ? t('payNote') : t('payNoteAgain');
+
+      const cardBtn = document.getElementById('pay-card');
+      cardBtn.textContent = firstMonth ? t('payCard') : t('payCardAgain');
+      cardBtn.classList.toggle('hide', !INVOICE_CARD || !(TG?.openTelegramLink || TG?.openInvoice));
       document.getElementById('pay-close').textContent =
         accessNow() === 'free' ? t('payCloseFree') : t('payClose');
 
@@ -3748,9 +3772,20 @@
     document.getElementById('pay-close').addEventListener('click', hidePaywall);
     payBox.addEventListener('click', e => { if (e.target === payBox) hidePaywall(); });
 
-    document.getElementById('pay-cta').addEventListener('click', () => {
-      if (!INVOICE || !TG?.openInvoice) { showToast(t('payNoLink')); return; }
-      TG.openInvoice(INVOICE, status => {
+    function payWith(link) {
+      if (!link) { showToast(t('payNoLink')); return; }
+      // Карта идёт не счётом Telegram, а страницей ЮKassa: телеграмовский
+      // рублёвый счёт нельзя выставить дешевле ~88 ₽, а первый месяц стоит
+      // рубль. Поэтому кнопка ведёт в переписку с ботом — он создаёт платёж
+      // и присылает ссылку. Звёзды остаются обычным счётом.
+      if (link.indexOf('https://t.me/') === 0) {
+        if (!TG?.openTelegramLink) { showToast(t('payNoLink')); return; }
+        hidePaywall();
+        TG.openTelegramLink(link);
+        return;
+      }
+      if (!TG?.openInvoice) { showToast(t('payNoLink')); return; }
+      TG.openInvoice(link, status => {
         if (status === 'paid') {
           hidePaywall();
           showToast('✓ Premium');
@@ -3760,7 +3795,9 @@
           syncAccess().finally(() => setTimeout(() => location.reload(), 900));
         }
       });
-    });
+    }
+    document.getElementById('pay-cta').addEventListener('click', () => payWith(INVOICE));
+    document.getElementById('pay-card').addEventListener('click', () => payWith(INVOICE_CARD));
 
     // ═══════════════════════════════════════════════════════════════
     //  Язык
