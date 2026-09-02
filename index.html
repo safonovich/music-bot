@@ -1383,6 +1383,23 @@
       } catch (e) {}
     }
 
+    // Рассказать боту, что произошло. Без этого статистика слепа там,
+    // где живёт продукт: возвраты считать нечем, а пейволл человек видит
+    // здесь, а не в переписке. Имена проверяет сервер, список закрытый —
+    // приложение не может выписать себе оплату.
+    function sendEvent(name) {
+      const init = TG?.initData;
+      if (!init || AUDIT) return;
+      try {
+        fetch('/api/event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'init_data=' + encodeURIComponent(init) + '&name=' + name,
+          keepalive: true,
+        }).catch(() => {});
+      } catch (e) {}
+    }
+
     // Отсчёт начинается не с открытия, а с первого запуска состояния
     function startTrialIfNeeded() {
       if (AUDIT) return;   // уровень доступа в аудите задан адресом
@@ -1706,7 +1723,7 @@
 
     // Версия звуковых файлов. Поднимается автоматически при каждой
     // заливке через «ОБНОВИТЬ ЗВУКИ.command»; вручную трогать не нужно.
-    const SND_V = 6;
+    const SND_V = 7;
 
     const SOUNDS = CATS.flatMap(c => c.sounds.map(s => ({ ...s, cat: c.id, file: s.id + '.mp3' })));
     const byId = id => SOUNDS.find(x => x.id === id);
@@ -2161,63 +2178,207 @@
       return ctx;
     }
 
-    function connectWA(id, el) {
+    // ═══════════════════════════════════════════════════════════════
+    //  Бесшовный луп: две дорожки на слой
+    //
+    //  el.loop бесшовным не бывает. На замыкании круга элемент
+    //  перематывается в ноль, декодер сбрасывается, и в этом месте
+    //  слышен провал. Раньше это лечили длиной: лупы удлинили с сорока
+    //  секунд до трёх-четырёх минут, и шов стал реже — но не исчез.
+    //
+    //  Теперь у каждого слоя две дорожки. Одна играет, вторая стоит в
+    //  начале и ждёт. Перед самым концом ждущая запускается, и за
+    //  LOOP_XF происходит равномощная склейка; отыгравшая замолкает и
+    //  отматывается в ноль — теперь ждёт она. Перемотки в момент
+    //  звучания больше не бывает, поэтому не бывает и шва.
+    //
+    //  Общий хвост слоя (полоса → характер → громкость → мастер) один
+    //  на обе дорожки. Поэтому фейды, характеры среды, события и
+    //  дыхание работают со слоем целиком и ничего не знают о том,
+    //  какая из двух дорожек сейчас звучит.
+    // ═══════════════════════════════════════════════════════════════
+    const LOOP_XF = 0.25;                 // длительность склейки на стыке
+    const mates = {}, swapping = {}, swapTimer = {};
+
+    function buildChain(id) {
       if (!ctx || nodes[id]) return;
       try {
-        const src = ctx.createMediaElementSource(el);
         const g = ctx.createGain();
         g.gain.value = 0;
-        let head = src;
+        // Характер: глухость = расстояние. Меняется вместе со средой,
+        // поэтому фильтр стоит всегда, просто по умолчанию открыт.
+        const chr = ctx.createBiquadFilter();
+        chr.type = 'lowpass'; chr.frequency.value = 20000; chr.Q.value = 0.4;
+        let head = chr;
         // Спектральная расчистка: каждый слой уступает чужую полосу.
         // Склоны мягкие — на слух звук остаётся естественным.
         const band = PROF[id]?.band;
         if (band === 'high') {
           const f = ctx.createBiquadFilter();
           f.type = 'highpass'; f.frequency.value = 200; f.Q.value = 0.5;
-          head.connect(f); head = f;
+          f.connect(chr); head = f;
         } else if (band === 'low') {
           const f = ctx.createBiquadFilter();
           f.type = 'lowpass'; f.frequency.value = 3400; f.Q.value = 0.5;
-          head.connect(f); head = f;
+          f.connect(chr); head = f;
         }
-        // Характер: глухость = расстояние. Меняется вместе со средой,
-        // поэтому фильтр стоит всегда, просто по умолчанию открыт.
-        const chr = ctx.createBiquadFilter();
-        chr.type = 'lowpass'; chr.frequency.value = 20000; chr.Q.value = 0.4;
-        head.connect(chr); head = chr;
-        head.connect(g);
+        chr.connect(g);
         g.connect(masterGain);
         g.connect(ensureCtx._conv);
-        el.volume = 1;
-        nodes[id] = { src, gain: g, chr };
+        nodes[id] = { gain: g, chr, head, xf: {} };
       } catch (e) {}
     }
 
-    function ensureEl(id) {
-      if (els[id]) return els[id];
+    // Дорожка входит в общий хвост слоя через свой узел склейки.
+    function connectWA(id, el, slot) {
+      const n = nodes[id];
+      if (!n || n.xf[slot]) return;
+      try {
+        const src = ctx.createMediaElementSource(el);
+        const xf = ctx.createGain();
+        xf.gain.value = slot === 'a' ? 1 : 0;
+        src.connect(xf); xf.connect(n.head);
+        n.xf[slot] = xf;
+        el.volume = 1;
+      } catch (e) {}
+    }
+
+    function makeTrack(id, slot) {
       const s = byId(id);
       const el = new Audio();
       // Имена файлов не меняются, поэтому Telegram и iOS отдают старые
       // звуки из кэша сколько угодно долго. Пробивает это только версия
       // в адресе — её поднимает «ОБНОВИТЬ ЗВУКИ.command» при каждой заливке.
       el.src = (canAAC ? id + '.m4a' : s.file) + '?v=' + SND_V;
-      el.loop = true;
+      el.loop = false;              // круг замыкает напарник, а не перемотка
       el.preload = 'auto';
       el.volume = 0;
+      el.dataset.slot = slot;
       el.setAttribute('playsinline', '');
-      if (ensureCtx()) { connectWA(id, el); applyChars(0.01); }
-      el.addEventListener('playing', () => setCardLoading(id, false));
-      el.addEventListener('canplaythrough', () => setCardLoading(id, false));
+      if (ctx) connectWA(id, el, slot);
+
+      // Слой ожил — забываем прошлые неудачи, иначе одна давняя заминка
+      // навсегда оставляет его в одном шаге от плашки.
+      const ok = () => { setCardLoading(id, false); delete el.dataset.try; };
+      el.addEventListener('playing', ok);
+      el.addEventListener('canplaythrough', ok);
+      // Длину узнаём только после метаданных — до этого стык не завести.
+      el.addEventListener('loadedmetadata', () => {
+        if (els[id] === el && state[id].active) armLoop(id);
+      });
+      // Дорожка доиграла до конца, а будильник не сработал (вкладка спала,
+      // система придержала таймеры) — догоняем стык сразу.
+      el.addEventListener('ended', () => {
+        if (els[id] === el && state[id].active && !paused) swapLoop(id);
+      });
+
+      // Три попытки, и только потом плашка.
+      //
+      // Здесь была тихая поломка: условие звучало как
+      // el.src.endsWith('.m4a'), но с появлением ?v= адрес кончается
+      // версией, а не расширением. Фолбэк на mp3 не срабатывал ни разу,
+      // и любая сетевая заминка сразу гасила слой и писала человеку,
+      // что элемент пространства недоступен. Особенно заметно сразу
+      // после обновления звуков: версия в адресе меняется, и все слои
+      // среды качаются заново одновременно.
       el.addEventListener('error', () => {
-        if (!el.dataset.fb && el.src.endsWith('.m4a')) {
-          el.dataset.fb = '1'; el.src = s.file; el.load();
-          if (state[id].active) el.play().catch(() => {});
+        const n = +(el.dataset.try || 0);
+        el.dataset.try = n + 1;
+        const aac = el.src.indexOf('.m4a') >= 0;
+        if (n === 0) {
+          // Та же дорожка ещё раз, мимо кэша: чаще всего этого хватает.
+          el.src = (aac ? id + '.m4a' : s.file) + '?v=' + SND_V + '&r=' + Date.now();
+        } else if (n === 1 && aac) {
+          // Форматы капризничают по-разному — уходим с m4a на mp3.
+          el.src = s.file + '?v=' + SND_V;
+        } else {
+          setCardLoading(id, false); haptics.error(); showToast(t('loadFail'));
           return;
         }
-        setCardLoading(id, false); haptics.error(); showToast(t('loadFail'));
+        el.load();
+        if (state[id].active && els[id] === el) el.play().catch(() => {});
       });
-      els[id] = el;
       return el;
+    }
+
+    function ensureEl(id) {
+      if (els[id]) return els[id];
+      if (ensureCtx()) buildChain(id);
+      els[id]   = makeTrack(id, 'a');
+      mates[id] = makeTrack(id, 'b');
+      if (ctx) applyChars(0.01);
+      return els[id];
+    }
+
+    // Будильник на следующий стык. Считаем от настоящего времени
+    // дорожки, а не от числа тиков: элемент может подтормозить на
+    // буферизации, и счёт по тикам уедет.
+    function armLoop(id) {
+      clearTimeout(swapTimer[id]);
+      if (paused) return;
+      const el = els[id];
+      if (!el || !state[id].active) return;
+      const d = el.duration;
+      if (!isFinite(d) || d <= LOOP_XF * 3) return;
+      const left = d - el.currentTime - LOOP_XF;
+      swapTimer[id] = setTimeout(() => swapLoop(id), Math.max(30, left * 1000));
+    }
+
+    // Передать круг напарнику.
+    function swapLoop(id) {
+      clearTimeout(swapTimer[id]);
+      const cur = els[id], nxt = mates[id];
+      if (!cur || !nxt || swapping[id] || paused || !state[id].active) return;
+      swapping[id] = true;
+      try { nxt.currentTime = 0; } catch (e) {}
+
+      const done = () => {
+        try { cur.pause(); cur.currentTime = 0; } catch (e) {}
+        els[id] = nxt; mates[id] = cur;
+        swapping[id] = false;
+        armLoop(id);
+      };
+
+      const n = nodes[id];
+      const gCur = n && n.xf[cur.dataset.slot];
+      const gNxt = n && n.xf[nxt.dataset.slot];
+
+      if (gCur && gNxt) {
+        // Web Audio: равная мощность лесенкой из отрезков — сумма
+        // энергий постоянна, поэтому на стыке нет ни провала, ни горба.
+        const now = ctx.currentTime, S = 16;
+        try {
+          gNxt.gain.cancelScheduledValues(now); gNxt.gain.setValueAtTime(0, now);
+          gCur.gain.cancelScheduledValues(now); gCur.gain.setValueAtTime(1, now);
+          for (let i = 1; i <= S; i++) {
+            const w = i / S, t = now + LOOP_XF * w;
+            gNxt.gain.linearRampToValueAtTime(Math.sin(w * Math.PI / 2), t);
+            gCur.gain.linearRampToValueAtTime(Math.cos(w * Math.PI / 2), t);
+          }
+        } catch (e) {}
+        nxt.play().catch(() => {});
+        setTimeout(done, LOOP_XF * 1000 + 40);
+      } else {
+        // Без Web Audio (это путь iPhone) склеиваем громкостью самих
+        // дорожек. Целевую громкость читаем на каждом шаге: слой в это
+        // время может дышать или уходить в ночное угасание.
+        try { nxt.volume = 0; } catch (e) {}
+        nxt.play().catch(() => {});
+        const S = 12; let i = 0;
+        const iv = setInterval(() => {
+          i++;
+          const w = i / S, v = Math.max(0, Math.min(1, volTarget(id)));
+          try {
+            nxt.volume = Math.max(0, Math.min(1, v * Math.sin(w * Math.PI / 2)));
+            cur.volume = Math.max(0, Math.min(1, v * Math.cos(w * Math.PI / 2)));
+          } catch (e) {}
+          if (i >= S) {
+            clearInterval(iv);
+            try { nxt.volume = v; } catch (e) {}
+            done();
+          }
+        }, LOOP_XF * 1000 / S);
+      }
     }
 
     function fadeTo(id, target, seconds, onDone) {
@@ -2240,7 +2401,8 @@
       let i = 0;
       fades[id] = setInterval(() => {
         i++;
-        try { el.volume = Math.max(0, Math.min(1, from + (target - from) * (i / steps))); } catch (e) {}
+        const v = Math.max(0, Math.min(1, from + (target - from) * (i / steps)));
+        try { el.volume = v; } catch (e) {}
         if (i >= steps) { clearInterval(fades[id]); delete fades[id]; if (onDone) onDone(); }
       }, seconds * 1000 / steps);
     }
@@ -2257,6 +2419,7 @@
         await el.play();
         setCardLoading(id, false);
         fadeTo(id, volTarget(id), fade);
+        armLoop(id);
       } catch (e) { setCardLoading(id, false); }
       updateMediaSession();
     }
@@ -2264,7 +2427,12 @@
     function stopSound(id, fade = FADE) {
       const el = els[id];
       if (!el) return;
-      fadeTo(id, 0, fade, () => { try { el.pause(); el.currentTime = 0; } catch (e) {} });
+      clearTimeout(swapTimer[id]);
+      fadeTo(id, 0, fade, () => {
+        [els[id], mates[id]].forEach(e => {
+          try { e.pause(); e.currentTime = 0; } catch (err) {}
+        });
+      });
       updateMediaSession();
     }
 
@@ -2292,7 +2460,7 @@
         masterVol = from + (v - from) * (i / steps);
         SOUNDS.forEach(s => {
           const el = els[s.id];
-          if (el && !el.paused && !fades[s.id]) {
+          if (el && !el.paused && !fades[s.id] && !swapping[s.id]) {
             try { el.volume = Math.max(0, Math.min(1, state[s.id].volume * masterVol)); } catch (e) {}
           }
         });
@@ -2306,7 +2474,15 @@
       if (paused) return;
       SOUNDS.forEach(s => {
         const el = els[s.id];
-        if (state[s.id].active && el && el.paused) el.play().catch(() => {});
+        if (!state[s.id].active || !el || swapping[s.id]) return;
+        if (el.paused) { el.play().catch(() => {}); return; }
+        // Будильник стыка мог не пережить засыпание вкладки: система
+        // придерживает таймеры в фоне. Сверяемся с настоящим временем
+        // дорожки и, если стык уже рядом, замыкаем круг сразу.
+        const d = el.duration;
+        if (!isFinite(d)) return;
+        if (d - el.currentTime <= LOOP_XF + 0.5) swapLoop(s.id);
+        else armLoop(s.id);
       });
     }, 3000);
 
@@ -2932,7 +3108,10 @@
       paused = true;
       if (sleepMode) nightPoke();   // на паузе ночной экран держать незачем
       SOUNDS.forEach(s => {
-        if (state[s.id].active && els[s.id]) fadeTo(s.id, 0, 0.45, () => { try { els[s.id].pause(); } catch (e) {} });
+        if (state[s.id].active && els[s.id]) {
+          clearTimeout(swapTimer[s.id]);
+          fadeTo(s.id, 0, 0.45, () => { try { els[s.id].pause(); } catch (e) {} });
+        }
       });
       updateMediaSession();
       refreshAll();
@@ -3740,6 +3919,9 @@
       rn.classList.toggle('hide', !canInvite());
 
       payBox.classList.add('open');
+      // Настоящий пейволл человек встречает здесь. Бот отмечал его только
+      // у себя в переписке — то есть считал не то место.
+      sendEvent('paywall_seen');
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -3943,6 +4125,7 @@
     showView('now');
     refreshAccessLine();
     syncAccess();
+    sendEvent('open');
 
     // Пробная тишина закончилась — говорим об этом один раз, мягко,
     // и человек остаётся с бесплатными звуками, а не перед стеной
@@ -4089,7 +4272,8 @@
                  (fades[s.id] ? '  fade↔' : '') +
                  (evtBusy.has(s.id) ? '  event' : ''));
           L.push('  t ' + fmt(el && el.currentTime) + ' / ' + fmt(el && el.duration) +
-                 '   loop ' + (el && el.loop ? 'on' : 'OFF') +
+                 '   дорожка ' + (el ? el.dataset.slot : '—') +
+                 (swapping[s.id] ? ' СКЛЕЙКА' : '') +
                  '   ' + (el ? (el.paused ? 'paused' : 'playing') : '—') +
                  '   buf ' + (el && el.buffered && el.buffered.length
                    ? Math.round(el.buffered.end(el.buffered.length - 1)) + 's' : '0s'));
@@ -4112,6 +4296,34 @@
         nightText: () => nightDefaultText(),
         get layers() { return SOUNDS.filter(x => state[x.id].active).map(x => x.id); },
         runEvent, currentMix, mixMatchesEnv, charName, charOf,
+        // Пинг-понг лупов. Стык случается раз в две-три минуты и длится
+        // четверть секунды — иначе его просто не поймать.
+        // seekNearEnd подводит дорожку к концу, чтобы стык случился сейчас.
+        get tracks() {
+          return SOUNDS.filter(x => els[x.id]).map(x => {
+            const e = els[x.id], n = nodes[x.id];
+            return {
+              id: x.id,
+              дорожка: e && e.dataset.slot,
+              t: e && +e.currentTime.toFixed(2),
+              длина: e && (isFinite(e.duration) ? Math.round(e.duration) : null),
+              играет: !!(e && !e.paused),
+              напарникЖдёт: !!(mates[x.id] && mates[x.id].paused),
+              склейка: !!swapping[x.id],
+              xf: n && n.xf.a && n.xf.b
+                ? [+n.xf.a.gain.value.toFixed(3), +n.xf.b.gain.value.toFixed(3)] : null,
+            };
+          });
+        },
+        seekNearEnd(id, before = 2) {
+          const e = els[id];
+          if (e && isFinite(e.duration)) { e.currentTime = Math.max(0, e.duration - before); armLoop(id); }
+        },
+        swapNow: swapLoop,
+        // Включить слой целиком, как это делает среда
+        layer(id, on = true) { state[id].active = on; return on ? startSound(id, 0.2) : stopSound(id, 0.2); },
+        startLayer: startSound,
+        stopLayer: stopSound,
         vol: id => state[id].volume,
         base: id => baseVol[id],
         cutoff: id => nodes[id] && nodes[id].chr ? Math.round(nodes[id].chr.frequency.value) : null,
