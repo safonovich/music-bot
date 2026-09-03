@@ -1394,7 +1394,11 @@
         fetch('/api/event', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: 'init_data=' + encodeURIComponent(init) + '&name=' + name,
+          // Версию страницы шлём вместе с событием: только так из логов
+          // видно, доехало ли обновление до людей. Раньше узнать это было
+          // нельзя вообще — Telegram отдавал страницу из кэша молча.
+          body: 'init_data=' + encodeURIComponent(init) + '&name=' + name +
+                '&build=' + encodeURIComponent(QS.get('b') || 'нет'),
           keepalive: true,
         }).catch(() => {});
       } catch (e) {}
