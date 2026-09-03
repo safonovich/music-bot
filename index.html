@@ -2323,12 +2323,38 @@
       // сначала называет длину того куска, что успел скачать, и уточняет
       // её потом. Именно на этой заниженной длине склейка назначалась в
       // середину звука — на 22-й, 40-й, 47-й секунде вместо конца файла.
-      el.addEventListener('loadedmetadata', () => {
-        if (els[id] === el && state[id].active) armLoop(id);
-      });
-      el.addEventListener('durationchange', () => {
-        if (els[id] === el && state[id].active) armLoop(id);
-      });
+      // Файл докачался не весь — перекачиваем.
+      //
+      // Так выглядела главная беда: до человека доезжала обрезанная копия
+      // (дождь 40 секунд вместо 191, окно 30 вместо 229), плеер честно
+      // доигрывал её до конца и замолкал на пару секунд. Снаружи это и
+      // слышно как обрыв каждые сорок секунд. Файл при этом на сервере
+      // целый — портится он по дороге или в кэше Telegram.
+      //
+      // Раньше поймать это было нечем: приложение не знало, какой длины
+      // должен быть файл. Теперь знает — и чинит себя само.
+      const checkLen = () => {
+        if (els[id] !== el && mates[id] !== el) return;
+        const want = LEN[id], got = el.duration;
+        if (!want || !isFinite(got) || got >= want - 5) { armLoop(id); return; }
+        if (el.dataset.refetch) {            // одна попытка на дорожку
+          alogPush(id, 'файл всё ещё обрезан', got.toFixed(0) + 'с вместо ' + want);
+          armLoop(id); return;
+        }
+        el.dataset.refetch = '1';
+        alogPush(id, '⚠ обрезанный файл ' + slot, got.toFixed(0) + 'с вместо ' + want + ' — перекачиваю');
+        const был = el.currentTime, играл = !el.paused;
+        el.src = (canAAC ? id + '.m4a' : s.file) + '?v=' + SND_V + '&r=' + Date.now();
+        el.load();
+        if (играл && els[id] === el) {
+          el.addEventListener('loadeddata', () => {
+            try { el.currentTime = Math.min(был, (LEN[id] || 1) - 1); } catch (e) {}
+            el.play().catch(() => {});
+          }, { once: true });
+        }
+      };
+      el.addEventListener('loadedmetadata', checkLen);
+      el.addEventListener('durationchange', checkLen);
       // Дорожка доиграла до конца, а будильник не сработал (вкладка спала,
       // система придержала таймеры) — догоняем стык сразу.
       el.addEventListener('ended', () => {
