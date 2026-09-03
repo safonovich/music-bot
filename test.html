@@ -2202,7 +2202,22 @@
     //  какая из двух дорожек сейчас звучит.
     // ═══════════════════════════════════════════════════════════════
     const LOOP_XF = 0.25;                 // длительность склейки на стыке
-    const mates = {}, swapping = {}, swapTimer = {};
+    // Аварийный выключатель: ?loop=old возвращает прежний el.loop.
+    // Шов будет слышен раз в три минуты, зато поведение известное.
+    const PINGPONG = QS.get('loop') !== 'old';
+    const mates = {}, swapping = {}, swapTimer = {}, warmTimer = {};
+
+    // Журнал звуковых событий. Обрыв длится доли секунды и случается раз в
+    // несколько минут — поймать его на слух и потом объяснить словами почти
+    // невозможно. Пишем сюда всё, что делает со слоем звук, и показываем в
+    // отладочной панели: один снимок экрана заменяет час догадок.
+    const alog = [];
+    const alogT0 = Date.now();
+    function alogPush(id, what, extra) {
+      alog.push(((Date.now() - alogT0) / 1000).toFixed(1) + 'с ' + id + ' ' + what +
+                (extra ? ' ' + extra : ''));
+      if (alog.length > 80) alog.shift();
+    }
 
     function buildChain(id) {
       if (!ctx || nodes[id]) return;
@@ -2254,8 +2269,11 @@
       // звуки из кэша сколько угодно долго. Пробивает это только версия
       // в адресе — её поднимает «ОБНОВИТЬ ЗВУКИ.command» при каждой заливке.
       el.src = (canAAC ? id + '.m4a' : s.file) + '?v=' + SND_V;
-      el.loop = false;              // круг замыкает напарник, а не перемотка
-      el.preload = 'auto';
+      el.loop = !PINGPONG;          // круг замыкает напарник, а не перемотка
+      // Напарник грузится лениво. Раньше обе дорожки качались сразу, и на
+      // телефоне среда из пяти слоёв тянула десять файлов одновременно —
+      // этого хватало, чтобы что-то не успело и слой замолчал.
+      el.preload = slot === 'a' ? 'auto' : 'none';
       el.volume = 0;
       el.dataset.slot = slot;
       el.setAttribute('playsinline', '');
@@ -2267,7 +2285,14 @@
       el.addEventListener('playing', ok);
       el.addEventListener('canplaythrough', ok);
       // Длину узнаём только после метаданных — до этого стык не завести.
+      // durationchange не менее важен: при потоковой загрузке браузер
+      // сначала называет длину того куска, что успел скачать, и уточняет
+      // её потом. Именно на этой заниженной длине склейка назначалась в
+      // середину звука — на 22-й, 40-й, 47-й секунде вместо конца файла.
       el.addEventListener('loadedmetadata', () => {
+        if (els[id] === el && state[id].active) armLoop(id);
+      });
+      el.addEventListener('durationchange', () => {
         if (els[id] === el && state[id].active) armLoop(id);
       });
       // Дорожка доиграла до конца, а будильник не сработал (вкладка спала,
@@ -2285,7 +2310,10 @@
       // что элемент пространства недоступен. Особенно заметно сразу
       // после обновления звуков: версия в адресе меняется, и все слои
       // среды качаются заново одновременно.
+      el.addEventListener('stalled', () => alogPush(id, 'застрял ' + slot));
+      el.addEventListener('waiting', () => alogPush(id, 'ждёт данные ' + slot));
       el.addEventListener('error', () => {
+        alogPush(id, 'ошибка ' + slot, el.error ? 'code ' + el.error.code : '');
         const n = +(el.dataset.try || 0);
         el.dataset.try = n + 1;
         const aac = el.src.indexOf('.m4a') >= 0;
@@ -2296,6 +2324,7 @@
           // Форматы капризничают по-разному — уходим с m4a на mp3.
           el.src = s.file + '?v=' + SND_V;
         } else {
+          alogPush(id, 'СДАЛСЯ — плашка', el.error ? 'code ' + el.error.code : '');
           setCardLoading(id, false); haptics.error(); showToast(t('loadFail'));
           return;
         }
@@ -2317,14 +2346,25 @@
     // Будильник на следующий стык. Считаем от настоящего времени
     // дорожки, а не от числа тиков: элемент может подтормозить на
     // буферизации, и счёт по тикам уедет.
+    const WARM_LEAD = 20;                 // за сколько секунд будить напарника
+
     function armLoop(id) {
       clearTimeout(swapTimer[id]);
-      if (paused) return;
+      clearTimeout(warmTimer[id]);
+      if (paused || !PINGPONG) return;
       const el = els[id];
       if (!el || !state[id].active) return;
       const d = el.duration;
       if (!isFinite(d) || d <= LOOP_XF * 3) return;
       const left = d - el.currentTime - LOOP_XF;
+
+      // Напарник должен быть готов заранее: если начать его грузить в
+      // момент склейки, на телефоне он не успеет, и слой замолчит.
+      const warm = (left - WARM_LEAD) * 1000;
+      const wake = () => { const m = mates[id]; if (!m) return;
+                           try { m.preload = 'auto'; m.load(); } catch (e) {} };
+      if (warm <= 0) wake(); else warmTimer[id] = setTimeout(wake, warm);
+
       swapTimer[id] = setTimeout(() => swapLoop(id), Math.max(30, left * 1000));
     }
 
@@ -2332,12 +2372,57 @@
     function swapLoop(id) {
       clearTimeout(swapTimer[id]);
       const cur = els[id], nxt = mates[id];
-      if (!cur || !nxt || swapping[id] || paused || !state[id].active) return;
+      if (!cur || !nxt || swapping[id] || paused || !state[id].active || !PINGPONG) return;
+
+      // Мы правда у конца? Браузер при потоковой загрузке сначала называет
+      // длину скачанного куска, а не файла, и будильник по такой длине
+      // назначается в середину звука. Проверяем на месте: если до конца
+      // ещё далеко — не режем, а заводим будильник заново по уточнённой
+      // длине. Один этот отказ снимает весь класс ранних склеек.
+      const d = cur.duration;
+      if (isFinite(d) && d > 0 && d - cur.currentTime > LOOP_XF + 0.35) {
+        alogPush(id, 'ОТКАЗ рано', 't=' + cur.currentTime.toFixed(1) + ' из ' + d.toFixed(0));
+        armLoop(id); return;
+      }
+
+      // Напарник не готов — склейка обернётся тишиной. Лучше доиграть
+      // как есть и попробовать через полсекунды.
+      if (nxt.readyState < 2) {
+        alogPush(id, 'напарник не готов', 'ready=' + nxt.readyState);
+        try { nxt.preload = 'auto'; nxt.load(); } catch (e) {}
+        clearTimeout(swapTimer[id]);
+        swapTimer[id] = setTimeout(() => swapLoop(id), 500);
+        return;
+      }
+
       swapping[id] = true;
       try { nxt.currentTime = 0; } catch (e) {}
 
+      const gCurRef = () => nodes[id] && nodes[id].xf[cur.dataset.slot];
+      const abort = () => {
+        // Сменщица не поднялась: возвращаем всё как было, звук не рвём.
+        const gc = gCurRef(), gn = nodes[id] && nodes[id].xf[nxt.dataset.slot];
+        try {
+          if (gc && gn) {
+            const now = ctx.currentTime;
+            gc.gain.cancelScheduledValues(now); gc.gain.setValueAtTime(1, now);
+            gn.gain.cancelScheduledValues(now); gn.gain.setValueAtTime(0, now);
+          } else { cur.volume = Math.max(0, Math.min(1, volTarget(id))); nxt.volume = 0; }
+          nxt.pause();
+        } catch (e) {}
+        alogPush(id, 'СРЫВ склейки — вернул как было');
+        swapping[id] = false;
+        clearTimeout(swapTimer[id]);
+        swapTimer[id] = setTimeout(() => swapLoop(id), 700);
+      };
+
+      alogPush(id, 'склейка', 't=' + cur.currentTime.toFixed(1) + '/' + (isFinite(d)?d.toFixed(0):'?'));
       const done = () => {
-        try { cur.pause(); cur.currentTime = 0; } catch (e) {}
+        // Глушим отыгравшую только после того, как сменщица правда пошла.
+        // Раньше здесь была безусловная пауза — и если напарник не успел,
+        // слой замолкал целиком.
+        if (nxt.paused || !(nxt.currentTime > 0) || nxt.readyState < 2) { abort(); return; }
+        try { cur.pause(); cur.currentTime = 0; cur.preload = 'none'; } catch (e) {}
         els[id] = nxt; mates[id] = cur;
         swapping[id] = false;
         armLoop(id);
@@ -4257,6 +4342,11 @@
       setInterval(() => {
         if (!open) return;
         const L = [];
+        if (alog.length) {
+          L.push('── что случилось со звуком ──');
+          alog.slice(-14).forEach(x => L.push('  ' + x));
+          L.push('');
+        }
         L.push('state   ' + (current ? current.st || '—' : '—') +
                '   scene ' + (current ? current.env || '—' : '—'));
         L.push('mix     ' + (current && current.name ? current.name : '—') +
