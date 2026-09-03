@@ -2201,10 +2201,44 @@
     //  дыхание работают со слоем целиком и ничего не знают о том,
     //  какая из двух дорожек сейчас звучит.
     // ═══════════════════════════════════════════════════════════════
+    // Настоящие длины файлов, в секундах.
+    //
+    // Спрашивать длину у браузера нельзя. При потоковой загрузке он
+    // называет длину скачанного куска и уточняет её потом — а иногда не
+    // уточняет вовсе. Код верил ему, решал, что файл кончился на сороковой
+    // секунде, и резал звук. Каждые сорок секунд заново: 41, 86, 128, 168.
+    //
+    // Файлы делаем мы сами, длины известны точно и проверены на боевом
+    // сервере по атому mvhd. Здесь они и лежат. Браузер в этом вопросе
+    // больше не участвует.
+    //
+    // При смене длины звука править здесь. Расхождение не страшно: если
+    // файл окажется короче, круг замкнёт событие ended.
+    const LEN = {
+      rain:191, thunder:199, waves:199, wind:181, fire:199, birds:179,
+      cafe:181, office:223, street:193, shop:181, park:193, crowd:199,
+      leaves:283, stream:211, window:229, hearth:167, highway:193, airport:191,
+      plane:191, train:193, metro:227, car:191, bus:181, boat:193,
+      handpan:191, veil:127, halo:197, choir:211, glow:157, dusk:163,
+      softnoise:173, deepnoise:223,
+    };
+    // Длина, которой можно верить: наша, а не браузерная.
+    const lenOf = (id, el) => {
+      if (LEN[id]) return LEN[id];
+      const d = el && el.duration;
+      return isFinite(d) && d > 0 ? d : 0;
+    };
+
     const LOOP_XF = 0.25;                 // длительность склейки на стыке
-    // Аварийный выключатель: ?loop=old возвращает прежний el.loop.
-    // Шов будет слышен раз в три минуты, зато поведение известное.
-    const PINGPONG = QS.get('loop') !== 'old';
+    // Аварийный выключатель. Внутри Telegram адрес задаёт бот, руками его
+    // не поправить, поэтому выбор хранится в памяти браузера и меняется
+    // кнопкой в журнале — пять касаний по названию.
+    const LOOPMODE_KEY = 'tishina_loopmode';
+    let loopStored = null;
+    try { loopStored = localStorage.getItem(LOOPMODE_KEY); } catch (e) {}
+    const PINGPONG = QS.get('loop') === 'old' ? false
+                   : QS.get('loop') === 'new' ? true
+                   : loopStored !== 'old';
     const mates = {}, swapping = {}, swapTimer = {}, warmTimer = {};
 
     // Журнал звуковых событий. Обрыв длится доли секунды и случается раз в
@@ -2354,8 +2388,8 @@
       if (paused || !PINGPONG) return;
       const el = els[id];
       if (!el || !state[id].active) return;
-      const d = el.duration;
-      if (!isFinite(d) || d <= LOOP_XF * 3) return;
+      const d = lenOf(id, el);
+      if (!d || d <= LOOP_XF * 3) return;
       const left = d - el.currentTime - LOOP_XF;
 
       // Напарник должен быть готов заранее: если начать его грузить в
@@ -2370,8 +2404,8 @@
       const wake = () => {
         const m = mates[id], e = els[id];
         if (!m || !e || !state[id].active) return;
-        const dd = e.duration;
-        if (!isFinite(dd) || dd - e.currentTime > WARM_LEAD + 5) {
+        const dd = lenOf(id, e);
+        if (!dd || dd - e.currentTime > WARM_LEAD + 5) {
           alogPush(id, 'разогрев рано — отложил');
           armLoop(id); return;
         }
@@ -2393,8 +2427,8 @@
       // назначается в середину звука. Проверяем на месте: если до конца
       // ещё далеко — не режем, а заводим будильник заново по уточнённой
       // длине. Один этот отказ снимает весь класс ранних склеек.
-      const d = cur.duration;
-      if (isFinite(d) && d > 0 && d - cur.currentTime > LOOP_XF + 0.35) {
+      const d = lenOf(id, cur);
+      if (d > 0 && d - cur.currentTime > LOOP_XF + 0.35) {
         alogPush(id, 'ОТКАЗ рано', 't=' + cur.currentTime.toFixed(1) + ' из ' + d.toFixed(0));
         armLoop(id); return;
       }
@@ -2430,7 +2464,8 @@
         swapTimer[id] = setTimeout(() => swapLoop(id), 700);
       };
 
-      alogPush(id, 'склейка', 't=' + cur.currentTime.toFixed(1) + '/' + (isFinite(d)?d.toFixed(0):'?'));
+      alogPush(id, 'склейка', 't=' + cur.currentTime.toFixed(1) + '/' + d.toFixed(0) +
+               (isFinite(cur.duration) ? ' (браузер: ' + cur.duration.toFixed(0) + ')' : ''));
       const done = () => {
         // Глушим отыгравшую только после того, как сменщица правда пошла.
         // Раньше здесь была безусловная пауза — и если напарник не успел,
@@ -2613,8 +2648,8 @@
         // Будильник стыка мог не пережить засыпание вкладки: система
         // придерживает таймеры в фоне. Сверяемся с настоящим временем
         // дорожки и, если стык уже рядом, замыкаем круг сразу.
-        const d = el.duration;
-        if (!isFinite(d)) return;
+        const d = lenOf(s.id, el);
+        if (!d) return;
         if (d - el.currentTime <= LOOP_XF + 0.5) swapLoop(s.id);
         else armLoop(s.id);
       });
@@ -4482,6 +4517,10 @@
           const done = () => showToast('Журнал скопирован');
           if (navigator.clipboard?.writeText) navigator.clipboard.writeText(текст).then(done, () => {});
           else done();
+        });
+        mk(PINGPONG ? 'Старые лупы' : 'Новые лупы', () => {
+          try { localStorage.setItem(LOOPMODE_KEY, PINGPONG ? 'old' : 'new'); } catch (e) {}
+          location.reload();
         });
         mk('Обновить', render);
         mk('Закрыть', () => { box.remove(); box = null; });
