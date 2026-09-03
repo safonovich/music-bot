@@ -2360,9 +2360,23 @@
 
       // Напарник должен быть готов заранее: если начать его грузить в
       // момент склейки, на телефоне он не успеет, и слой замолчит.
+      //
+      // Но будить его надо ровно у конца. Длина, по которой считается
+      // время разогрева, — та же занижаемая duration; по ней разогрев
+      // срабатывал в середине звука и лез качать второй файл поверх
+      // играющего. Поэтому проверяем ещё раз на месте, и грузим мягко:
+      // preload без load(), чтобы не трогать то, что уже звучит.
       const warm = (left - WARM_LEAD) * 1000;
-      const wake = () => { const m = mates[id]; if (!m) return;
-                           try { m.preload = 'auto'; m.load(); } catch (e) {} };
+      const wake = () => {
+        const m = mates[id], e = els[id];
+        if (!m || !e || !state[id].active) return;
+        const dd = e.duration;
+        if (!isFinite(dd) || dd - e.currentTime > WARM_LEAD + 5) {
+          alogPush(id, 'разогрев рано — отложил');
+          armLoop(id); return;
+        }
+        try { m.preload = 'auto'; } catch (err) {}
+      };
       if (warm <= 0) wake(); else warmTimer[id] = setTimeout(wake, warm);
 
       swapTimer[id] = setTimeout(() => swapLoop(id), Math.max(30, left * 1000));
@@ -2469,6 +2483,37 @@
         }, LOOP_XF * 1000 / S);
       }
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Сторож обрывов
+    //
+    //  Обрыв — это когда слой должен звучать, а его время стоит на месте.
+    //  Причина может быть любой: сеть, декодер, наши собственные правки.
+    //  Сторож не разбирается в причинах — он фиксирует факт и секунду,
+    //  на которой это случилось. Именно этого не хватало: человек слышит
+    //  провал на двадцать шестой секунде и не может сказать почему, а по
+    //  коду причин можно придумать десяток.
+    // ═══════════════════════════════════════════════════════════════
+    const stallSince = {}, lastT = {};
+    setInterval(() => {
+      if (paused) return;
+      SOUNDS.forEach(s => {
+        const id = s.id, el = els[id];
+        if (!state[id].active || !el) { delete stallSince[id]; delete lastT[id]; return; }
+        const t = el.currentTime;
+        const идёт = !el.paused && t > (lastT[id] ?? -1) + 0.05;
+        if (идёт || swapping[id]) {
+          if (stallSince[id]) {
+            const дл = ((Date.now() - stallSince[id]) / 1000).toFixed(1);
+            if (+дл >= 0.4) alogPush(id, '⛔ ОБРЫВ ' + дл + 'с', 'на ' + t.toFixed(0) + 'с дорожки');
+            delete stallSince[id];
+          }
+        } else if (!stallSince[id]) {
+          stallSince[id] = Date.now();
+        }
+        lastT[id] = t;
+      });
+    }, 300);
 
     function fadeTo(id, target, seconds, onDone) {
       const el = els[id];
@@ -4375,6 +4420,85 @@
         body.textContent = L.join('\n');
       }, 250);
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Журнал звука по пяти касаниям по слову «ТИШИНА»
+    //
+    //  Внутри Telegram адрес задаёт бот, дописать ?dev=1 руками нельзя —
+    //  а разбираться с обрывами нужно именно там, где они слышны.
+    //  Пять касаний подряд по названию открывают журнал. Обычный человек
+    //  на это не наткнётся, а разработчику не нужен ни компьютер, ни
+    //  консоль: открыл, прочитал, скопировал.
+    // ═══════════════════════════════════════════════════════════════
+    (() => {
+      let taps = 0, last = 0, box = null;
+
+      function render() {
+        if (!box) {
+          box = document.createElement('div');
+          box.style.cssText =
+            'position:fixed;inset:8px;z-index:9999;background:#0b0a08;color:#ece3cf;' +
+            'border:1px solid #2a2419;border-radius:14px;padding:14px;overflow:auto;' +
+            '-webkit-overflow-scrolling:touch;font:12px/1.5 ui-monospace,Menlo,monospace';
+          document.body.appendChild(box);
+        }
+        const слои = SOUNDS.filter(x => state[x.id].active).map(x => {
+          const e = els[x.id];
+          return '  ' + x.id + '  ' + (e ? e.currentTime.toFixed(0) + '/' +
+                 (isFinite(e.duration) ? e.duration.toFixed(0) : '?') : '—') +
+                 '  дорожка ' + (e ? e.dataset.slot : '—') +
+                 (e && e.paused ? '  ПАУЗА' : '') +
+                 '  ready ' + (e ? e.readyState : '—');
+        });
+        const текст = [
+          'ТИШИНА · журнал звука',
+          'версия страницы ' + (QS.get('b') || 'нет'),
+          'звук ' + (ctx ? ctx.state : 'без Web Audio') +
+            ' · лупы ' + (PINGPONG ? 'две дорожки' : 'старые'),
+          '',
+          'слои сейчас:', ...слои,
+          '',
+          'что случилось (⛔ — слышимый обрыв):',
+          ...(alog.length ? alog.slice(-40).map(x => '  ' + x) : ['  пока ничего']),
+        ].join('\n');
+
+        box.innerHTML = '';
+        const pre = document.createElement('pre');
+        pre.style.cssText = 'white-space:pre-wrap;word-break:break-word;margin:0 0 12px';
+        pre.textContent = текст;
+        box.appendChild(pre);
+
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:8px;position:sticky;bottom:0;background:#0b0a08;padding-top:8px';
+        const mk = (t, fn) => {
+          const b = document.createElement('button');
+          b.textContent = t;
+          b.style.cssText = 'flex:1;min-height:44px;border-radius:10px;border:1px solid #2a2419;' +
+                            'background:#17130a;color:#d0a94e;font-size:14px';
+          b.addEventListener('click', fn);
+          row.appendChild(b);
+        };
+        mk('Скопировать', () => {
+          const done = () => showToast('Журнал скопирован');
+          if (navigator.clipboard?.writeText) navigator.clipboard.writeText(текст).then(done, () => {});
+          else done();
+        });
+        mk('Обновить', render);
+        mk('Закрыть', () => { box.remove(); box = null; });
+        box.appendChild(row);
+      }
+
+      ['brand', 'brand2', 'brand3', 'brand4'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('click', () => {
+          const now = Date.now();
+          taps = now - last < 800 ? taps + 1 : 1;
+          last = now;
+          if (taps >= 5) { taps = 0; render(); }
+        });
+      });
+    })();
 
     // ── Dev-панель: ?dev=1 — новый / trial / истёк / deep ──
     if (QS.get('dev') === '1') {
