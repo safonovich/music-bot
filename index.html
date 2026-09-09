@@ -1043,7 +1043,7 @@
       font-size: 16.5px; line-height: 1.8; letter-spacing: 0.2px;
       color: var(--text-dim);
       opacity: 0; transform: translateY(7px);
-      transition: opacity 0.9s ease 0.2s, transform 0.9s ease 0.2s;
+      transition: opacity 0.5s ease 0.05s, transform 0.5s ease 0.05s;
     }
     #breath.on .ln { opacity: 1; transform: none; }
     @media (prefers-reduced-motion: reduce) {
@@ -2387,25 +2387,32 @@
       //
       // Раньше поймать это было нечем: приложение не знало, какой длины
       // должен быть файл. Теперь знает — и чинит себя само.
+      // ЗДЕСЬ БЫЛА МОЯ ОШИБКА, И ОНА ДОРОГО СТОИЛА.
+      //
+      // Раньше этот обработчик считал файл обрезанным, если браузер
+      // называл длину меньше ожидаемой, и перекачивал его заново.
+      // Замер на сервере показал: файлы целые — и m4a, и mp3, полной
+      // длины, с заголовком в начале, отдаются без ограничений.
+      // А маленькая длина — это просто то, сколько успело докачаться:
+      // при потоковой загрузке браузер называет длиной уже полученный
+      // кусок и уточняет её по мере скачивания.
+      //
+      // То есть тревога была ложной ВСЕГДА. А «лечение» вызывало
+      // el.load(), который сбрасывает дорожку в ноль — вот откуда
+      // брались обрывы и наступавшая следом тишина. Защита ломала
+      // ровно то, что должна была беречь.
+      //
+      // Теперь: длину для стыков берём только из таблицы LEN, никаких
+      // перекачек. Расхождение просто отмечаем в журнале — оно нормально,
+      // пока файл догружается.
       const checkLen = () => {
         if (els[id] !== el && mates[id] !== el) return;
         const want = LEN[id], got = el.duration;
-        if (!want || !isFinite(got) || got >= want - 5) { armLoop(id); return; }
-        if (el.dataset.refetch) {            // одна попытка на дорожку
-          alogPush(id, 'файл всё ещё обрезан', got.toFixed(0) + 'с вместо ' + want);
-          armLoop(id); return;
+        if (want && isFinite(got) && got < want - 5 && !el.dataset.noted) {
+          el.dataset.noted = '1';
+          alogPush(id, 'докачивается ' + slot, got.toFixed(0) + 'с из ' + want);
         }
-        el.dataset.refetch = '1';
-        alogPush(id, '⚠ обрезанный файл ' + slot, got.toFixed(0) + 'с вместо ' + want + ' — перекачиваю');
-        const был = el.currentTime, играл = !el.paused;
-        el.src = (canAAC ? id + '.m4a' : s.file) + '?v=' + SND_V + '&r=' + Date.now();
-        el.load();
-        if (играл && els[id] === el) {
-          el.addEventListener('loadeddata', () => {
-            try { el.currentTime = Math.min(был, (LEN[id] || 1) - 1); } catch (e) {}
-            el.play().catch(() => {});
-          }, { once: true });
-        }
+        armLoop(id);
       };
       el.addEventListener('loadedmetadata', checkLen);
       el.addEventListener('durationchange', checkLen);
@@ -2672,7 +2679,7 @@
     // столько, сколько нужно: минимум — чтобы фраза прочиталась, дальше —
     // пока догружаются звуки, но не бесконечно. Кто не успел к сроку,
     // входит позже своим плавным подъёмом, а не рывком.
-    const BREATH_MIN = 1800;   // сколько плашка держится в любом случае
+    const BREATH_MIN = 3500;   // сколько плашка держится в любом случае
     const BREATH_MAX = 6000;   // сколько ждём загрузку, дальше начинаем без неё
     const ENTER_FADE = 2.0;    // подъём громкости от тишины
 
@@ -2733,7 +2740,8 @@
       const t0 = Date.now();
       want.forEach(w => {
         const el = ensureEl(w.id);
-        try { el.preload = 'auto'; if (el.readyState < 3) el.load(); } catch (e) {}
+        // load() только для молчащей дорожки: у играющей он сбрасывает позицию
+        try { el.preload = 'auto'; if (el.paused && el.readyState < 3) el.load(); } catch (e) {}
         state[w.id].volume = w.vol;
         baseVol[w.id] = w.vol;
         fadeTo(w.id, 0, 0.02);            // начинаем строго от тишины
