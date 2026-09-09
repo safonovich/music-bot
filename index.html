@@ -1015,6 +1015,42 @@
     }
     #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+    /* Вход в состояние. Не «загрузка» — пауза на вдох. Поэтому ни
+       спиннера, ни процентов: только фраза и медленное кольцо. */
+    #breath {
+      position: fixed; inset: 0; z-index: 600;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0 42px;
+      background: var(--bg);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.55s ease;
+    }
+    #breath.on { opacity: 1; pointer-events: auto; }
+    #breath .halo {
+      position: absolute;
+      width: 210px; height: 210px; border-radius: 50%;
+      border: 1px solid var(--line);
+      opacity: 0.2; transform: scale(0.82);
+    }
+    #breath.on .halo { animation: breathe 5.4s ease-in-out infinite; }
+    @keyframes breathe {
+      0%, 100% { opacity: 0.16; transform: scale(0.82); }
+      50%      { opacity: 0.40; transform: scale(1); }
+    }
+    #breath .ln {
+      position: relative;
+      max-width: 300px; text-align: center;
+      font-size: 16.5px; line-height: 1.8; letter-spacing: 0.2px;
+      color: var(--text-dim);
+      opacity: 0; transform: translateY(7px);
+      transition: opacity 0.9s ease 0.2s, transform 0.9s ease 0.2s;
+    }
+    #breath.on .ln { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      #breath.on .halo { animation: none; }
+      #breath .ln { transition: opacity 0.4s ease; transform: none; }
+    }
+
     .pad-mini { height: 76px; }
   </style>
 </head>
@@ -1249,6 +1285,8 @@
     <div class="nv-hint"></div>
   </div>
 
+  <div id="breath"><div class="halo"></div><div class="ln"></div></div>
+
   <div id="toast"></div>
 
   <script>
@@ -1472,6 +1510,14 @@
         saved: '✓ Сохранено', deleted: 'Микс удалён',
         needSounds: 'Сначала включите звуки', maxPresets: 'Максимум 8 миксов',
         loadFail: 'Один элемент пространства недоступен — остальное звучит',
+        breathLines: [
+          'Сначала вдох и выдох. Не спеши.',
+          'Можно закрыть глаза. Здесь спешить не нужно.',
+          'Вдох и выдох. Тишина уже с тобой.',
+          'Остановись на секунду. Всё подождёт.',
+          'Ты всё успеешь. Мы только начинаем.',
+          'Никуда не спеши. Всё успеется.'
+        ],
         agoJust: 'только что', agoMin: 'мин назад', agoH: 'ч назад',
         timerDone: 'Таймер завершён',
         resumeHint: 'Ваше состояние сохранено — нажмите «Продолжить»',
@@ -1570,6 +1616,14 @@
         saved: '✓ Saved', deleted: 'Mix deleted',
         needSounds: 'Turn on some sounds first', maxPresets: 'Maximum 8 mixes',
         loadFail: 'One element of the space is unavailable — the rest keeps playing',
+        breathLines: [
+          'First a breath in, and out. No hurry.',
+          'You can close your eyes. Nothing is rushing here.',
+          'Breathe in, breathe out. The quiet is already with you.',
+          'Stop for a second. Everything can wait.',
+          'There is time for all of it. We are only starting.',
+          'No need to hurry. It will all keep.'
+        ],
         agoJust: 'just now', agoMin: 'min ago', agoH: 'h ago',
         timerDone: 'Timer finished',
         resumeHint: 'Your state is saved — tap Resume',
@@ -2605,6 +2659,126 @@
     // Итоговая громкость слоя: в Web Audio мастер-фейды делает masterGain
     const volTarget = id => state[id].volume * (ctx ? 1 : masterVol);
 
+    // ═══════════════════════════════════════════════════════════════
+    //  Общий вход в состояние
+    // ═══════════════════════════════════════════════════════════════
+    // Раньше каждый слой запускался сам по себе, как только догружался:
+    // дождь через секунду, окно через четыре, печь через десять. Отсюда
+    // рваный вход и ощущение, что следующий звук громче — он не громче,
+    // он просто входил в уже устоявшуюся картину.
+    //
+    // Теперь среда собирается целиком и стартует одним движением: все
+    // слои от нуля, общим подъёмом. Плашка с дыханием живёт ровно
+    // столько, сколько нужно: минимум — чтобы фраза прочиталась, дальше —
+    // пока догружаются звуки, но не бесконечно. Кто не успел к сроку,
+    // входит позже своим плавным подъёмом, а не рывком.
+    const BREATH_MIN = 1800;   // сколько плашка держится в любом случае
+    const BREATH_MAX = 6000;   // сколько ждём загрузку, дальше начинаем без неё
+    const ENTER_FADE = 2.0;    // подъём громкости от тишины
+
+    const breathBox = document.getElementById('breath');
+    const breathLn  = breathBox ? breathBox.querySelector('.ln') : null;
+
+    function showBreath() {
+      if (!breathBox) return;
+      const lines = t('breathLines');
+      if (Array.isArray(lines) && lines.length && breathLn) {
+        breathLn.textContent = lines[Math.floor(Math.random() * lines.length)];
+      }
+      breathBox.classList.add('on');
+    }
+    function hideBreath() { if (breathBox) breathBox.classList.remove('on'); }
+
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const isReady = id => { const el = els[id]; return !!el && el.readyState >= 3; };
+
+    function waitReady(ids, maxMs) {
+      return new Promise(resolve => {
+        const t0 = Date.now();
+        let iv = 0;
+        const tick = () => {
+          if (ids.every(isReady) || Date.now() - t0 >= maxMs) {
+            clearInterval(iv); resolve(Date.now() - t0);
+          }
+        };
+        iv = setInterval(tick, 80);
+        tick();
+      });
+    }
+
+    let enterRun = 0;
+
+    async function applyMixSynced(mix, fade = SCENE_FADE) {
+      const run = ++enterRun;
+      paused = false;
+      resetAtmo();
+      baseVol = {};
+      applyChars(fade);
+
+      const want = [];
+      SOUNDS.forEach(s => {
+        const vol = allowed(s) ? (mix[s.id] || 0) / 100 * charGain(s.id) : 0;
+        if (vol > 0) want.push({ id: s.id, vol });
+      });
+
+      // Лишнее гасим сразу — оно не должно ждать вместе со всеми
+      SOUNDS.forEach(s => {
+        if (state[s.id].active && !want.some(w => w.id === s.id)) {
+          state[s.id].active = false; stopSound(s.id, fade);
+        }
+      });
+
+      if (!want.length) { updateMediaSession(); return; }
+
+      const t0 = Date.now();
+      want.forEach(w => {
+        const el = ensureEl(w.id);
+        try { el.preload = 'auto'; if (el.readyState < 3) el.load(); } catch (e) {}
+        state[w.id].volume = w.vol;
+        baseVol[w.id] = w.vol;
+        fadeTo(w.id, 0, 0.02);            // начинаем строго от тишины
+      });
+
+      showBreath();
+      await Promise.all([ waitReady(want.map(w => w.id), BREATH_MAX), sleep(BREATH_MIN) ]);
+
+      // За это время могли нажать другое состояние или остановить всё
+      if (run !== enterRun) return;
+      if (!current) { hideBreath(); return; }
+
+      if (ctx && ctx.state === 'suspended') { try { await ctx.resume(); } catch (e) {} }
+
+      const ms = () => ((Date.now() - t0) / 1000).toFixed(1) + 'с';
+      want.forEach(w => {
+        const el = els[w.id];
+        if (!el) return;
+        state[w.id].active = true;
+        const rdy = isReady(w.id);
+        alogPush(w.id, rdy ? '▶ вошёл со всеми' : '… ещё грузится', ms());
+        setCardLoading(w.id, !rdy);
+        try { el.play().catch(() => {}); } catch (e) {}
+        if (rdy) {
+          fadeTo(w.id, volTarget(w.id), ENTER_FADE);
+          armLoop(w.id);
+        } else {
+          // Опоздавший входит своим подъёмом от нуля — без скачка
+          const go = () => {
+            el.removeEventListener('playing', go);
+            setCardLoading(w.id, false);
+            if (!state[w.id].active) return;
+            alogPush(w.id, '▶ вошёл позже', ms());
+            fadeTo(w.id, volTarget(w.id), ENTER_FADE);
+            armLoop(w.id);
+          };
+          el.addEventListener('playing', go);
+        }
+      });
+
+      haptics.light();                    // второй отклик — тише первого
+      hideBreath();
+      updateMediaSession();
+    }
+
     async function startSound(id, fade = FADE) {
       const el = ensureEl(id);
       setCardLoading(id, true);
@@ -3218,7 +3392,7 @@
       startedAt = Date.now();
       memBegin();
       cancelTimer();
-      applyMix(env.mix, SCENE_FADE);
+      applyMixSynced(env.mix, SCENE_FADE);
       if (env.timer) setTimer(env.timer);
       // В «Уснуть» заходят не для того, чтобы потом что-то выключать
       else if (st.night && !stay) setTimer(nightDefaultMin());
@@ -3633,7 +3807,7 @@
           startedAt = Date.now();
           memBegin();
           cancelTimer();
-          applyMix(p.mix, SCENE_FADE);
+          applyMixSynced(p.mix, SCENE_FADE);
           saveLast();
           refreshAll();
           renderMixes();
