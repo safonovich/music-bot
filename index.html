@@ -958,6 +958,10 @@
     .pay-alt:active { transform: scale(0.98); }
     .pay-alt.hide { display: none; }
     .pay-note { text-align: center; font-size: 11px; color: var(--text-dim); margin-top: 11px; line-height: 1.4; }
+    /* Тонкая черта между «позвать» и «заплатить»: это разные разговоры */
+    .pay-sep { height: 1px; background: var(--line); margin: 22px 0 20px; }
+    .pay-sep.hide { display: none; }
+
     .pay-close {
       display: block; width: 100%; margin-top: 14px; padding: 10px 0;
       background: none; border: none; color: var(--text-dim);
@@ -995,6 +999,7 @@
     #me-ref .tag { font-size: 10px; letter-spacing: 2.2px; text-transform: uppercase; color: var(--text-dim); }
     #me-ref .ds { margin-top: 9px; font-size: 12.5px; color: var(--text-dim); line-height: 1.5; }
     #me-ref .ref-btn { margin-top: 13px; }
+    #pay .ref-btn { margin-top: 0; }
 
     #toast {
       position: fixed;
@@ -1270,11 +1275,14 @@
       <div class="pay-title" id="pay-title"></div>
       <div class="pay-sub" id="pay-sub"></div>
       <div class="pay-list" id="pay-list"></div>
+      <!-- Сначала бесплатный путь, деньги — последними. У пейволла всегда
+           два выхода, и тот, что ничего не стоит, не должен стоять вторым. -->
+      <button class="ref-btn" id="pay-ref"></button>
+      <div class="ref-line hide" id="pay-ref-note"></div>
+      <div class="pay-sep" id="pay-sep"></div>
       <button class="pay-cta" id="pay-cta"></button>
       <button class="pay-alt hide" id="pay-card"></button>
       <div class="pay-note" id="pay-note"></div>
-      <button class="ref-btn" id="pay-ref"></button>
-      <div class="ref-line hide" id="pay-ref-note"></div>
       <button class="pay-close" id="pay-close"></button>
     </div>
   </div>
@@ -4318,6 +4326,8 @@
       rn.textContent = t('refLine');
       rb.classList.toggle('on', canInvite());
       rn.classList.toggle('hide', !canInvite());
+      // Черта разделяет два разговора. Если звать некого — делить нечего.
+      document.getElementById('pay-sep').classList.toggle('hide', !canInvite());
 
       payBox.classList.add('open');
       // Настоящий пейволл человек встречает здесь. Бот отмечал его только
