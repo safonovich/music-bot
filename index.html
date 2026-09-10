@@ -2161,8 +2161,12 @@
     // LEAVE длиннее FADE намеренно: уходить из пространства должно быть
     // так же плавно, как в него входить. Раньше выход занимал 0.4 с —
     // на фоне двух с половиной секунд входа это читалось как обрыв.
-    const FADE = 0.4, LAYER_FADE = 1.2, LEAVE_FADE = 1.4,
-          SCENE_FADE = 2.5, TIMER_FADE = 30;
+    // Всё, что человек слышит как «включилось» или «выключилось»,
+    // должно занимать секунды, а не мгновение. Слой, входящий за
+    // секунду, читается ухом как щелчок, даже если громкость растёт
+    // плавно: слишком быстро меняется картина целиком.
+    const FADE = 1.5, LAYER_FADE = 5.0, LEAVE_FADE = 5.0,
+          SCENE_FADE = 4.0, TIMER_FADE = 30;
 
     // ═══════════════════════════════════════════════════════════════
     //  Аудиодвижок — без изменений, он и так работает бесшовно
@@ -2276,14 +2280,29 @@
       handpan:191, veil:127, halo:197, choir:211, glow:157, dusk:163,
       softnoise:173, deepnoise:223,
     };
-    // Длина, которой можно верить: наша, а не браузерная.
+    // Длина, которой можно верить.
+    //
+    // Своя таблица — первый выбор. Для звуков, которых в ней нет,
+    // берём браузерную длину, но ТОЛЬКО когда файл скачан целиком:
+    // во время загрузки браузер называет длиной уже полученный кусок,
+    // и склейка назначалась на середину звука. Пока файл качается,
+    // возвращаем ноль — стык просто не заводится и будет заведён
+    // позже, когда данные дойдут.
     const lenOf = (id, el) => {
       if (LEN[id]) return LEN[id];
       const d = el && el.duration;
-      return isFinite(d) && d > 0 ? d : 0;
+      if (!isFinite(d) || d <= 0) return 0;
+      try {
+        const b = el.buffered;
+        if (b && b.length && b.end(b.length - 1) >= d - 0.5) return d;
+      } catch (e) {}
+      return 0;
     };
 
-    const LOOP_XF = 0.25;                 // длительность склейки на стыке
+    // Стык кругов. Четверть секунды здесь было слышно почти всегда:
+    // ухо ловит смену источника, даже если громкость сходится ровно.
+    // Четыре секунды равномощной склейки делают переход неразличимым.
+    const LOOP_XF = 4.0;                  // длительность склейки на стыке
     // Аварийный выключатель. Внутри Telegram адрес задаёт бот, руками его
     // не поправить, поэтому выбор хранится в памяти браузера и меняется
     // кнопкой в журнале — пять касаний по названию.
@@ -2416,6 +2435,9 @@
       };
       el.addEventListener('loadedmetadata', checkLen);
       el.addEventListener('durationchange', checkLen);
+      // Догрузилась очередная порция — возможно, теперь длина известна точно
+      el.addEventListener('progress', checkLen);
+      el.addEventListener('canplaythrough', checkLen);
       // Дорожка доиграла до конца, а будильник не сработал (вкладка спала,
       // система придержала таймеры) — догоняем стык сразу.
       el.addEventListener('ended', () => {
@@ -2571,7 +2593,9 @@
       if (gCur && gNxt) {
         // Web Audio: равная мощность лесенкой из отрезков — сумма
         // энергий постоянна, поэтому на стыке нет ни провала, ни горба.
-        const now = ctx.currentTime, S = 16;
+        // Шагов столько, чтобы на любой длине склейки они шли чаще
+        // 20 раз в секунду — иначе слышна лесенка.
+        const now = ctx.currentTime, S = Math.max(16, Math.round(LOOP_XF * 25));
         try {
           gNxt.gain.cancelScheduledValues(now); gNxt.gain.setValueAtTime(0, now);
           gCur.gain.cancelScheduledValues(now); gCur.gain.setValueAtTime(1, now);
@@ -2589,7 +2613,7 @@
         // время может дышать или уходить в ночное угасание.
         try { nxt.volume = 0; } catch (e) {}
         nxt.play().catch(() => {});
-        const S = 12; let i = 0;
+        const S = Math.max(12, Math.round(LOOP_XF * 25)); let i = 0;
         const iv = setInterval(() => {
           i++;
           const w = i / S, v = Math.max(0, Math.min(1, volTarget(id)));
@@ -2681,7 +2705,7 @@
     // входит позже своим плавным подъёмом, а не рывком.
     const BREATH_MIN = 3500;   // сколько плашка держится в любом случае
     const BREATH_MAX = 6000;   // сколько ждём загрузку, дальше начинаем без неё
-    const ENTER_FADE = 2.0;    // подъём громкости от тишины
+    const ENTER_FADE = 3.5;    // подъём громкости от тишины
 
     const breathBox = document.getElementById('breath');
     const breathLn  = breathBox ? breathBox.querySelector('.ln') : null;
@@ -3487,7 +3511,7 @@
       SOUNDS.forEach(s => {
         if (state[s.id].active && els[s.id]) {
           clearTimeout(swapTimer[s.id]);
-          fadeTo(s.id, 0, 0.45, () => { try { els[s.id].pause(); } catch (e) {} });
+          fadeTo(s.id, 0, 1.6, () => { try { els[s.id].pause(); } catch (e) {} });
         }
       });
       updateMediaSession();
